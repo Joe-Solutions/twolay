@@ -141,7 +141,8 @@ only contains the app and models; no user audio, video or text is ever sent.
 
 **Audience mode** (⚙ → Link, off by default). Each screen normally uses only its user's sense: Boses *speaks*
 the sign for the Blind user, Kamay *shows* the text and sign clip for the Deaf user. For judges watching both
-screens, audience mode also plays the sign clip on Boses and reads the transcript aloud on Kamay. It is per device.
+screens, audience mode also plays the sign clip on Boses, and on Kamay says the recognised sign and reads the
+incoming transcript aloud. It is per device.
 
 ### A. Single laptop (required fallback)
 
