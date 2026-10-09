@@ -8,7 +8,7 @@
 // Keyboard: arrows and Enter do the same. With VoiceOver / TalkBack on, turn this off in ⚙ and use theirs.
 import { buzz } from './haptics.js';
 import { say, prewarm, stopSpeech } from './voice.js';
-import { loadKokoro } from './kokoro.js';
+import { whenKokoroLoaded } from './kokoro.js';
 import { settings, talk, isRecording, messages, repeatMessage, flipCamera, setLang } from './usap.js';
 
 const SWIPE_MIN = 40;      // px
@@ -217,7 +217,7 @@ export function initGestures(deps) {
       buzz('screen');
       if (name === 'usap') {
         say(t('Usap. Nakatutok ang camera sa nagsa-sign. Mag-double tap para magsalita.', 'Conversation. The camera is watching the signer. Double tap to speak.'), settings.lang);
-        loadKokoro().then(() => prewarm(screens.usap.map((i) => i.label()), settings.lang)).catch(() => {});
+        whenKokoroLoaded().then(() => prewarm(screens.usap.map((i) => i.label()), settings.lang)).catch(() => {});
       } else if (name === 'home') {
         say(t('Twolay. Simulan ang usapan. Mag-double tap para pindutin, mag-swipe para sa iba.', 'Twolay. Start the conversation. Double tap to press, swipe for more.'), settings.lang);
       }

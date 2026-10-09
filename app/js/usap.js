@@ -9,7 +9,7 @@ import { speak, speakEnglish, earcon, unlockAudio, stopSpeech } from './voice.js
 import * as voice from './voice.js';
 import { SignSpotter } from './spotter.js';
 import { loadWhisper, loadVAD, recordUtterance, transcribe } from './stt.js';
-import { loadKokoro, saveVoices } from './kokoro.js';
+import { loadKokoro, saveVoices, holdVoices } from './kokoro.js';
 import { loadTranslator, translate } from './translate.js';
 import { netlog } from './netlog.js';
 
@@ -89,11 +89,11 @@ export async function enterUsap() {
   } catch (err) {
     $('#u-status').textContent = `Camera error: ${err.message}`;
   }
-  loadVAD().catch(() => {});
-  loadKokoro().then(saveSignVoices).catch(() => {});
-  preloadTranslation();
+  // One model at a time: they share one AI worker, and loading them together peaks too high for an iPhone.
+  // Until Kokoro is in, signs are said with the system voice or the espeak clips.
   const mic = $('#u-mic');
   mic.classList.add('busy');
+  await loadVAD().catch(() => {});
   try {
     await loadWhisper((p) => {
       if (p.progress != null && mic.classList.contains('busy')) mic.textContent = `Naglo-load ${Math.round(p.progress)}%`;
@@ -103,6 +103,10 @@ export async function enterUsap() {
   }
   mic.classList.remove('busy');
   mic.textContent = 'Magsalita';
+  if (!st.active) return;
+  await loadKokoro().catch(() => {});
+  preloadTranslation();
+  saveSignVoices().catch(() => {});
 }
 
 /** Pre-generate the voice for every sign (trained ones first), so a recognised sign is said at once. */
@@ -202,6 +206,7 @@ export async function talk() {
   earcon('start');
   btn.classList.add('live');
   btn.textContent = 'Nakikinig…';
+  holdVoices(true);
   st.recording = recordUtterance({ onLevel: (lvl) => ($('#u-level').style.width = `${Math.round(lvl * 100)}%`) });
   let result;
   try {
@@ -214,6 +219,7 @@ export async function talk() {
   btn.classList.remove('live');
   earcon('stop');
   if (!result?.heardSpeech) {
+    holdVoices(false);
     btn.textContent = 'Magsalita';
     earcon('error');
     setCaption('Walang narinig. Subukan ulit.');
@@ -234,6 +240,7 @@ export async function talk() {
     setCaption('Hindi naintindihan. Subukan ulit.');
     netlog.info(`transcribe error: ${err.message}`);
   } finally {
+    holdVoices(false);
     st.busy = false;
     spotter.reset();
     btn.classList.remove('busy');

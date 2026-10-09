@@ -1,5 +1,6 @@
 // Main-thread side of the Kokoro voice: loads the worker in the background and returns audio per text.
 import { netlog } from './netlog.js';
+import { connectAI } from './ai.js';
 
 let worker;
 let booted;
@@ -11,8 +12,8 @@ const cache = new Map();   // text -> {audio, rate}; sign words repeat a lot
 
 function getWorker() {
   if (worker) return worker;
-  worker = new Worker(new URL('./tts-worker.js', import.meta.url), { type: 'module' });
-  // The worker sets onmessage only after its imports; messages sent earlier would be dropped.
+  worker = connectAI('kokoro');
+  // The service is ready for messages once it says 'booted'.
   booted = new Promise((res) => {
     worker.addEventListener('message', function first(e) {
       if (e.data.type === 'booted') {
@@ -22,15 +23,11 @@ function getWorker() {
     });
   });
   worker.addEventListener('message', ({ data }) => {
-    if (data.type === 'net') {
-      if (data.blocked) netlog.blocked(data.url, 'tts-worker fetch');
-      else netlog.resource(data.url, 'tts-worker');
-    } else if (data.type === 'audio' || data.type === 'error') {
+    if ((data.type === 'audio' || data.type === 'error') && data.id) {
       pending.get(data.id)?.(data);
       pending.delete(data.id);
     }
   });
-  worker.onerror = (e) => netlog.info(`kokoro worker error: ${e.message}`);
   return worker;
 }
 
@@ -40,7 +37,7 @@ export function loadKokoro() {
     netlog.model('Kokoro-82M v1.0 (int8 ONNX), voice ef_dora', 'models/onnx-community/Kokoro-82M-v1.0-ONNX/');
     const w = getWorker();
     const h = ({ data }) => {
-      if (data.type === 'ready') { w.removeEventListener('message', h); isReady = true; res(); }
+      if (data.type === 'ready') { w.removeEventListener('message', h); isReady = true; markLoaded(); res(); }
       if (data.type === 'error' && !data.id) { w.removeEventListener('message', h); rej(new Error(data.error)); }
     };
     w.addEventListener('message', h);
@@ -54,6 +51,10 @@ export function loadKokoro() {
 }
 
 export const kokoroReady = () => isReady;
+let markLoaded;
+const loaded = new Promise((r) => (markLoaded = r));
+/** Resolves once Kokoro has loaded, without starting it. */
+export const whenKokoroLoaded = () => loaded;
 
 /**
  * Synthesize text; resolves to {audio: Float32Array, rate}.
@@ -98,12 +99,19 @@ export async function savedVoice(text, { lang = 'fil' } = {}) {
   return out;
 }
 
+// The AI worker is shared, so background voices pause while the mic's VAD and Whisper need it.
+let held = false;
+export function holdVoices(on) {
+  held = on;
+}
+
 /** Generate (once, in the background) and save audio for each text. */
 export async function saveVoices(texts, { lang = 'fil' } = {}) {
   if (!('caches' in window)) return;
   await loadKokoro();
   const store = await caches.open(SAVED);
   for (const text of texts) {
+    while (held) await new Promise((r) => setTimeout(r, 250));
     const key = `${lang}|${text.trim().toLowerCase()}`;
     if (await store.match(savedURL(key))) continue;
     // English: only words the lexicon knows; others are left to the system English voice, as when speaking.

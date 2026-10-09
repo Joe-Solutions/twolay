@@ -1,5 +1,6 @@
-// Microphone capture with Silero VAD (energy VAD as fallback), then local Whisper tiny in a worker.
+// Microphone capture with Silero VAD (energy VAD as fallback), then local Whisper tiny, both in ai-worker.js.
 import { netlog } from './netlog.js';
+import { connectAI } from './ai.js';
 
 const TARGET_RATE = 16000;
 const MAX_MS = 7000;
@@ -11,7 +12,7 @@ const VAD_OFF = 0.35;             // and continues while above this
 const VAD_MIN_FRAMES = 3;         // ~100 ms of speech before it counts
 const LEAD_IN_MS = 400;           // audio kept before the detected start
 
-// ---------- Silero VAD worker ----------
+// ---------- Silero VAD ----------
 let vadWorker;
 let vadReady = null;
 let vadOk = false;
@@ -21,19 +22,15 @@ const vadPending = new Map();
 export function loadVAD() {
   vadReady ??= new Promise((res, rej) => {
     netlog.model('Silero VAD v5 (ONNX)', 'models/onnx-community/silero-vad/');
-    vadWorker = new Worker(new URL('./vad-worker.js', import.meta.url), { type: 'module' });
+    vadWorker = connectAI('vad');
     vadWorker.addEventListener('message', ({ data }) => {
       if (data.type === 'booted') vadWorker.postMessage({ type: 'load' });
       else if (data.type === 'ready') { vadOk = true; res(); }
-      else if (data.type === 'net') {
-        if (data.blocked) netlog.blocked(data.url, 'vad-worker fetch');
-        else netlog.resource(data.url, 'vad-worker');
-      } else if (data.id) {
+      else if (data.id) {
         vadPending.get(data.id)?.(data);
         vadPending.delete(data.id);
       } else if (data.type === 'error') rej(new Error(data.error));
     });
-    vadWorker.onerror = (e) => rej(new Error(e.message));
   });
   vadReady.catch((err) => {
     netlog.info(`Silero VAD unavailable, using energy VAD: ${err.message}`);
@@ -85,7 +82,7 @@ let onProgress = () => {};
 
 function getWorker() {
   if (worker) return worker;
-  worker = new Worker(new URL('./whisper-worker.js', import.meta.url), { type: 'module' });
+  worker = connectAI('whisper');
   booted = new Promise((res) => {
     worker.addEventListener('message', function first(e) {
       if (e.data.type === 'booted') {
@@ -95,16 +92,12 @@ function getWorker() {
     });
   });
   worker.addEventListener('message', ({ data }) => {
-    if (data.type === 'net') {
-      if (data.blocked) netlog.blocked(data.url, 'whisper-worker fetch');
-      else netlog.resource(data.url, 'whisper-worker');
-    } else if (data.type === 'progress') onProgress(data);
+    if (data.type === 'progress') onProgress(data);
     else if (data.type === 'result' || data.type === 'error') {
       pending.get(data.id)?.(data);
       pending.delete(data.id);
     }
   });
-  worker.onerror = (e) => netlog.info(`whisper worker error: ${e.message}`);
   return worker;
 }
 

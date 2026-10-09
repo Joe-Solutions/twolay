@@ -1,5 +1,6 @@
-// Main-thread side of the offline English <-> Filipino translator (OPUS-MT in mt-worker.js).
+// Main-thread side of the offline English <-> Filipino translator (OPUS-MT, ai-translate.js in ai-worker.js).
 import { netlog } from './netlog.js';
+import { connectAI } from './ai.js';
 
 let worker;
 let booted;
@@ -11,8 +12,8 @@ const cache = new Map();   // `${dir}|text` -> translation
 
 function getWorker() {
   if (worker) return worker;
-  worker = new Worker(new URL('./mt-worker.js', import.meta.url), { type: 'module' });
-  // The worker sets onmessage only after its imports; messages sent earlier would be dropped.
+  worker = connectAI('translate');
+  // The service is ready for messages once it says 'booted'.
   booted = new Promise((res) => {
     worker.addEventListener('message', function first(e) {
       if (e.data.type === 'booted') {
@@ -22,15 +23,11 @@ function getWorker() {
     });
   });
   worker.addEventListener('message', ({ data }) => {
-    if (data.type === 'net') {
-      if (data.blocked) netlog.blocked(data.url, 'mt-worker fetch');
-      else netlog.resource(data.url, 'mt-worker');
-    } else if ((data.type === 'result' || data.type === 'error') && data.id) {
+    if ((data.type === 'result' || data.type === 'error') && data.id) {
       pending.get(data.id)?.(data);
       pending.delete(data.id);
     }
   });
-  worker.onerror = (e) => netlog.info(`translation worker error: ${e.message}`);
   return worker;
 }
 
