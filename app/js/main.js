@@ -10,6 +10,7 @@ import { store, shippedClip } from './store.js';
 import { DemoLink, P2PLink } from './link.js';
 import { speak, earcon, unlockAudio, voiceInfo } from './voice.js';
 import { loadWhisper, recordUtterance, transcribe } from './stt.js';
+import { loadKokoro } from './kokoro.js';
 import { renderQR, scanQR } from './qrpair.js';
 import { registerSW, offlineStatus, cacheAll } from './offline.js';
 
@@ -133,6 +134,7 @@ async function enterKamay() {
   try {
     await cam.start();
     $('#k-status').textContent = classifier.ready ? 'Handa. Pindutin ang Kamay at mag-sign.' : 'Wala pang training: Home → Turuan';
+    loadKokoro().catch(() => {});
   } catch (err) {
     $('#k-status').textContent = `Camera error: ${err.message}`;
   }
@@ -380,6 +382,7 @@ async function enterBoses() {
     });
     btn.textContent = 'Boses';
     $('#b-hint').textContent = 'Pindutin, magsalita, at huminto. Kusa itong titigil.';
+    loadKokoro().catch(() => {});
   } catch (err) {
     btn.textContent = 'Boses';
     $('#b-hint').textContent = `Hindi ma-load ang Whisper: ${err.message}`;

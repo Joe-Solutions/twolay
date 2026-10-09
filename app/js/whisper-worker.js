@@ -3,7 +3,7 @@
 const ownOrigin = self.location.origin;
 const realFetch = self.fetch.bind(self);
 self.fetch = (input, init) => {
-  const url = new URL(typeof input === 'string' ? input : input.url, self.location.href);
+  const url = new URL(input instanceof Request ? input.url : String(input), self.location.href);
   if (url.origin !== ownOrigin && !['blob:', 'data:'].includes(url.protocol)) {
     self.postMessage({ type: 'net', blocked: true, url: url.href });
     return Promise.reject(new TypeError(`Twolay offline guard blocked ${url.href}`));

@@ -1,8 +1,10 @@
 // Local speech output. Never uses a network voice:
-//   1. an on-device system voice for Filipino (speechSynthesis, localService === true only)
-//   2. pre-rendered espeak-ng / Piper clip shipped in app/audio/<label>.wav
-//   3. any other on-device system voice
+//   1. Kokoro-82M running in a worker on this device, once loaded
+//   2. an on-device system voice for Filipino (speechSynthesis, localService === true only)
+//   3. pre-rendered espeak-ng / Piper clip shipped in app/audio/<label>.wav
+//   4. any other on-device system voice
 import { LABELS } from './signs.js';
+import { kokoroReady, synthesize } from './kokoro.js';
 
 const audioBase = new URL('../audio/', import.meta.url);
 let voices = [];
@@ -17,9 +19,35 @@ if ('speechSynthesis' in window) {
 
 const filipinoVoice = () => voices.find((v) => /^(fil|tl)\b/i.test(v.lang) || /filipino|tagalog/i.test(v.name));
 
+export let lastEngine = 'none';
+
 export function voiceInfo() {
   const v = filipinoVoice();
-  return v ? `system: ${v.name} (${v.lang}, on-device)` : `clips: app/audio (espeak-ng) + on-device system voice fallback`;
+  const fallback = v ? `system: ${v.name} (${v.lang}, on-device)` : 'clips: app/audio (espeak-ng) + on-device system voice';
+  return `${kokoroReady() ? 'Kokoro-82M (ef_dora), on-device' : 'Kokoro: naglo-load pa'} · fallback: ${fallback} · huling ginamit: ${lastEngine}`;
+}
+
+let kokoroSource;
+async function playKokoro(text) {
+  if (!kokoroReady()) return false;
+  try {
+    const { audio, rate } = await synthesize(text);
+    actx ??= new (window.AudioContext || window.webkitAudioContext)();
+    await actx.resume();
+    const buf = actx.createBuffer(1, audio.length, rate);
+    buf.copyToChannel(audio, 0);
+    kokoroSource?.stop();
+    const src = (kokoroSource = actx.createBufferSource());
+    src.buffer = buf;
+    src.connect(actx.destination);
+    await new Promise((res) => {
+      src.onended = res;
+      src.start();
+    });
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function speakSystem(text, voice) {
@@ -47,11 +75,15 @@ function playClip(label) {
 
 /** Speak a sign label (e.g. 'tulong') or free text. */
 export async function speak(text, label) {
-  const fil = filipinoVoice();
-  if (fil && (await speakSystem(text, fil))) return 'system';
-  if (label && LABELS.includes(label) && (await playClip(label))) return 'clip';
-  if (await speakSystem(text, voices[0])) return 'system-other';
-  return 'none';
+  lastEngine = await (async () => {
+    if (await playKokoro(text)) return 'kokoro';
+    const fil = filipinoVoice();
+    if (fil && (await speakSystem(text, fil))) return 'system';
+    if (label && LABELS.includes(label) && (await playClip(label))) return 'clip';
+    if (await speakSystem(text, voices[0])) return 'system-other';
+    return 'none';
+  })();
+  return lastEngine;
 }
 
 // Short tones so a blind user knows what the app is doing without looking.

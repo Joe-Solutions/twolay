@@ -6,3 +6,4 @@ test/*.y4m
 test/clips/
 test/*.jpg
 test/*.wav
+test/voice-samples/
