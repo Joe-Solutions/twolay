@@ -5,7 +5,7 @@ name: Deploy app to GitHub Pages
 on:
   push:
     branches: [main]
-    paths: ['app/**', '.github/workflows/pages.yml']
+    paths: ['app/**', 'scripts/build_manifest.py', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -26,6 +26,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
+      # Rebuilt here so the version and per-file hashes always match what is deployed, even if a
+      # commit forgot `npm run manifest`. Phones that saved the app update from these hashes.
+      - name: Build asset manifest
+        run: python3 scripts/build_manifest.py
       - uses: actions/upload-pages-artifact@v3
         with:
           path: app

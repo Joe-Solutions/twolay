@@ -70,7 +70,8 @@ npm run setup            # MediaPipe, Whisper tiny, ONNX Runtime -> app/; render
 Rebuilding the OPUS-MT translators (`scripts/make_opus_mt.sh`, only run when they are missing) also needs
 [`uv`](https://docs.astral.sh/uv/); it creates a Python 3.12 venv in `.vendor-tmp/`.
 
-After you change any file in `app/`, run `npm run manifest` so installed phones pick up the new version.
+After you change any file in `app/`, run `npm run manifest` so the local server's version matches. The Pages
+deploy rebuilds it anyway, so a forgotten manifest never stops phones from updating.
 
 ## Train the signs
 
@@ -202,7 +203,13 @@ Camera, mic and offline caching need HTTPS.
 **https://joe-solutions.github.io/twolay/** (`.github/workflows/pages.yml`). On the phone, with internet once:
 open the link → ⚙ → **Offline** → *I-save ang buong app para offline* (about 500 MB, use Wi-Fi) → wait for **Handa offline ✓** →
 Add to Home Screen (iPhone: Share; Android Chrome: menu → Install app). After that it runs with Wi-Fi and data off.
-After a new version is published, open the app online once and save for offline again.
+**Updates are automatic.** The Pages workflow rebuilds `asset-manifest.json` (a SHA-256 per file) on every deploy.
+Each time the app starts online, it compares that list with what the phone saved and downloads **only the files
+that changed** (usually a few small JS/HTML files, not the 500 MB of models), then reloads itself
+(or asks you to go back to Home if you are mid-conversation). The service worker always checks the version over
+the network and revalidates anything not saved, so a phone that never saved the app also sees the new version
+straight away. Phones that saved an older build (before this scheme) need the app opened online **twice**: the
+first start installs the new service worker, the second migrates the saved files by hash and updates.
 The site only serves the app and model files; nothing the phones see or hear is uploaded.
 
 **Without internet: serve from the laptop.** Use a trusted local cert:
@@ -266,6 +273,9 @@ npm test
   right vibration (tick, edge), double tap opens Usap, double tap records "Ano ang sakit?" (swipes ignored while the
   mic is on), swipe up repeats it, double tap switches the language and goes home, and a single tap still presses
   the button under the finger.
+- `e2e-update.mjs`: serves a copy of `app/`, saves it the old way, "deploys" a change and checks the saved copy is
+  migrated by hash, the next deploy downloads only `index.html` and reloads itself into it, and it still runs with
+  the server down.
 - `e2e-voice.mjs`: loads Kokoro from this origin only, speaks six Tagalog phrases, and saves them to
   `test/voice-samples/*.wav` so you can listen.
 

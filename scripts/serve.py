@@ -55,12 +55,13 @@ def main():
     ap.add_argument("--port", type=int)
     ap.add_argument("--cert")
     ap.add_argument("--key")
+    ap.add_argument("--dir", help="serve this folder instead of app/ (tests)")
     a = ap.parse_args()
 
     host = "0.0.0.0" if a.lan else "127.0.0.1"
     tls = bool(a.cert and a.key)
     port = a.port or (8443 if tls else 8000)
-    httpd = ThreadingHTTPServer((host, port), partial(Handler, directory=str(APP)))
+    httpd = ThreadingHTTPServer((host, port), partial(Handler, directory=a.dir or str(APP)))
     if tls:
         ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
         ctx.load_cert_chain(a.cert, a.key)
