@@ -73,13 +73,22 @@ for f in config.json generation_config.json preprocessor_config.json tokenizer.j
   [ -s "$out" ] || curl -fsSL "$HF/$f" -o "$out" || echo "   (optional file missing: $f)"
 done
 
-echo "==> Kokoro-82M v1.0 (int8) text-to-speech + Spanish voices"
+echo "==> Kokoro-82M v1.0 (int8) text-to-speech + Spanish and English voices"
 KOKORO_REPO="onnx-community/Kokoro-82M-v1.0-ONNX"
 mkdir -p "$APP/models/$KOKORO_REPO/onnx" "$APP/models/$KOKORO_REPO/voices"
-for f in config.json tokenizer.json tokenizer_config.json onnx/model_quantized.onnx voices/ef_dora.bin voices/em_alex.bin; do
+for f in config.json tokenizer.json tokenizer_config.json onnx/model_quantized.onnx voices/ef_dora.bin voices/em_alex.bin voices/af_heart.bin; do
   out="$APP/models/$KOKORO_REPO/$f"
   [ -s "$out" ] || curl -fsSL "https://huggingface.co/$KOKORO_REPO/resolve/main/$f" -o "$out"
 done
+
+echo "==> OPUS-MT English <-> Tagalog translators (int8)"
+if [ -s "$APP/models/Helsinki-NLP/opus-mt-tl-en/onnx/decoder_model_merged_quantized.onnx" ] &&
+   [ -s "$APP/models/Helsinki-NLP/opus-mt-en-tl/onnx/decoder_model_merged_quantized.onnx" ]; then
+  echo "   already in app/models (committed)"
+else
+  bash "$ROOT/scripts/make_opus_mt.sh"
+fi
+[ -s "$APP/models/en-lexicon.json" ] || python3 "$ROOT/scripts/make_en_lexicon.py" || echo "   (skipped: needs espeak-ng + the OPUS-MT vocab)"
 
 echo "==> QR pairing libs (qrcode-generator, jsQR)"
 fetch_pkg qrcode-generator 2.0.4 qrgen

@@ -1,16 +1,17 @@
 import { netlog, installGuard } from './netlog.js';
 installGuard();
 
-import { SIGNS, LABELS, UNKNOWN_TEXT, signText, textToSigns, customWords, setCustomWords } from './signs.js';
+import { SIGNS, LABELS, UNKNOWN_TEXT, signText, signEnglish, textToSigns, customWords, setCustomWords } from './signs.js';
 import { createTrainer, TAKES_TARGET } from './trainer.js';
 import { SignClassifier, trimFrames } from './classifier.js';
 import { SignCam } from './camera.js';
 import { framesFromVideoFile } from './hands.js';
 import { store, shippedClip } from './store.js';
 import { DemoLink, P2PLink } from './link.js';
-import { speak, earcon, unlockAudio, voiceInfo } from './voice.js';
+import { speak, speakEnglish, earcon, unlockAudio, voiceInfo } from './voice.js';
 import { loadWhisper, recordUtterance, transcribe } from './stt.js';
 import { loadKokoro } from './kokoro.js';
+import { loadTranslator, translate } from './translate.js';
 import { renderQR, scanQR } from './qrpair.js';
 import { registerSW, offlineStatus, cacheAll } from './offline.js';
 
@@ -26,6 +27,8 @@ const state = {
   auto: localStorage.getItem('twolay.auto') === '1',
   useStarter: localStorage.getItem('twolay.starter') !== '0',
   audience: localStorage.getItem('twolay.audience') === '1',
+  // Spoken language on this phone: 'fil', or 'en' (English speech is translated for the signer, signs are voiced in English).
+  lang: localStorage.getItem('twolay.lang') === 'en' ? 'en' : 'fil',
   cooldownUntil: 0,
   handStreak: 0,
 };
@@ -104,7 +107,18 @@ function shareWords() {
   if (state.role !== 'boses') send({ t: 'words', words: customWords() });
 }
 
-function onMessage(msg) {
+/** English for a sign: the built-in meaning, or the offline translator for added words. */
+async function englishFor(label, text) {
+  return signEnglish(label) || (await translate(text, 'tl-en').catch(() => '')) || text;
+}
+
+/** Voice a recognised sign in this phone's language. */
+async function speakSign(label, text) {
+  if (state.lang === 'en') return speakEnglish(await englishFor(label, text));
+  return speak(text, label);
+}
+
+async function onMessage(msg) {
   if (msg.t === 'ping') return toast('Natanggap ang test mula sa kabila ✓');
   if (msg.t === 'words') {
     if (state.role === 'boses' && Array.isArray(msg.words) && setCustomWords(msg.words)) {
@@ -113,14 +127,17 @@ function onMessage(msg) {
     return;
   }
   if (msg.t === 'sign' && state.role === 'boses') {
-    setCaption(msg.text, 'Kamay:');
-    addHistory({ from: 'kamay', text: msg.text });
     earcon('recv');
-    setTimeout(() => speak(msg.text, msg.label), 250);
     if (state.audience) playSigns([msg.label], 'b');
+    const en = state.lang === 'en' ? await englishFor(msg.label, msg.text) : '';
+    const shown = en && en.toLowerCase() !== msg.text.toLowerCase() ? `${msg.text} — ${en}` : msg.text;
+    setCaption(shown, 'Kamay:');
+    addHistory({ from: 'kamay', text: shown });
+    setTimeout(() => (en ? speakEnglish(en) : speak(msg.text, msg.label)), 250);
   } else if (msg.t === 'speech' && state.role === 'kamay') {
     setCaption(msg.text, 'Boses:');
-    addHistory({ from: 'boses', text: msg.text, note: msg.signs?.length ? `sign: ${msg.signs.join(', ')}` : '' });
+    const notes = [msg.src && `English: ${msg.src}`, msg.signs?.length && `sign: ${msg.signs.join(', ')}`].filter(Boolean);
+    addHistory({ from: 'boses', text: msg.text, note: notes.join(' · ') });
     playSigns(msg.signs || []);
     if (state.audience) speak(msg.text);
   }
@@ -135,6 +152,7 @@ async function enterKamay() {
     await cam.start();
     $('#k-status').textContent = classifier.ready ? 'Handa. Pindutin ang Kamay at mag-sign.' : 'Wala pang training: Home → Turuan';
     loadKokoro().catch(() => {});
+    preloadTranslation();
   } catch (err) {
     $('#k-status').textContent = `Camera error: ${err.message}`;
   }
@@ -197,7 +215,7 @@ async function kamayCapture() {
   const sent = send({ t: 'sign', label: res.label, text, conf: +res.confidence.toFixed(2) });
   setCaption(text, 'Ikaw:');
   // A connected Boses device voices the sign; otherwise this device must, or nobody hears it.
-  if (state.audience || !(sent && state.link?.peerRole === 'boses')) speak(text, res.label);
+  if (state.audience || !(sent && state.link?.peerRole === 'boses')) speakSign(res.label, text);
   $('#k-status').textContent = `${text} — ${Math.round(res.confidence * 100)}% ${sent ? '→ naipadala' : '(walang link, dito lang)'}`;
   addHistory({ from: 'kamay', text, note: sent ? '' : 'hindi naipadala — walang link', local: !sent });
 }
@@ -357,6 +375,27 @@ $('#use-starter').onchange = (e) => {
 function renderAudience() {
   $('#b-clipbox').hidden = !state.audience;
 }
+function preloadTranslation() {
+  if (state.lang !== 'en') return;
+  if (state.role === 'boses') loadTranslator('en-tl').catch(() => {});
+  if (customWords().length) loadTranslator('tl-en').catch(() => {});
+}
+function renderLang() {
+  for (const id of ['#lang', '#b-lang']) $(id).value = state.lang;
+  $('#b-hint').textContent = state.lang === 'en'
+    ? 'Press, speak English, then pause. It is translated to Filipino for the signer.'
+    : 'Pindutin, magsalita, at huminto. Kusa itong titigil.';
+}
+for (const id of ['#lang', '#b-lang']) {
+  $(id).onchange = (e) => {
+    state.lang = e.target.value === 'en' ? 'en' : 'fil';
+    localStorage.setItem('twolay.lang', state.lang);
+    renderLang();
+    preloadTranslation();
+    toast(state.lang === 'en' ? 'English: translated offline (OPUS-MT)' : 'Filipino');
+  };
+}
+renderLang();
 $('#audience-mode').checked = state.audience;
 $('#audience-mode').onchange = (e) => {
   state.audience = e.target.checked;
@@ -381,8 +420,9 @@ async function enterBoses() {
       if (p.progress != null) btn.textContent = `Naglo-load ${Math.round(p.progress)}%`;
     });
     btn.textContent = 'Boses';
-    $('#b-hint').textContent = 'Pindutin, magsalita, at huminto. Kusa itong titigil.';
+    renderLang();
     loadKokoro().catch(() => {});
+    preloadTranslation();
   } catch (err) {
     btn.textContent = 'Boses';
     $('#b-hint').textContent = `Hindi ma-load ang Whisper: ${err.message}`;
@@ -422,14 +462,27 @@ async function bosesTalk() {
   btn.classList.add('busy');
   btn.textContent = 'Isinusulat…';
   try {
-    const { text, ms } = await transcribe(result.audio);
-    if (!text) throw new Error('walang teksto');
-    const signs = textToSigns(text);
-    const sent = send({ t: 'speech', text, signs });
-    setCaption(text, 'Ikaw:');
+    const english = state.lang === 'en';
+    const { text: heard, ms } = await transcribe(result.audio, english ? 'english' : 'tagalog');
+    if (!heard) throw new Error('walang teksto');
+    let text = heard;
+    let src;
+    if (english) {
+      btn.textContent = 'Isinasalin…';
+      src = heard;
+      text = await translate(heard, 'en-tl').catch((err) => {
+        netlog.info(`translate error: ${err.message}`);
+        return heard;
+      });
+    }
+    // English keywords still match when the translation drifts.
+    const signs = textToSigns(src ? `${text} ${src}` : text);
+    const sent = send({ t: 'speech', text, src, signs });
+    const shown = src && src !== text ? `${src} → ${text}` : text;
+    setCaption(shown, 'Ikaw:');
     addHistory({
       from: 'boses',
-      text,
+      text: shown,
       note: `${signs.length ? `sign: ${signs.join(', ')} · ` : ''}${ms} ms${sent ? '' : ' · hindi naipadala — walang link'}`,
       local: !sent,
     });

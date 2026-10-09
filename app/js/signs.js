@@ -5,7 +5,7 @@ export const UNKNOWN_TEXT = 'hindi kita';
 const BUILTIN = [
   { label: 'oo',       text: 'Oo',       en: 'yes' },
   { label: 'hindi',    text: 'Hindi',    en: 'no' },
-  { label: 'kumusta',  text: 'Kumusta',  en: 'hello / how are you' },
+  { label: 'kumusta',  text: 'Kumusta',  en: 'how are you / hello' },
   { label: 'tubig',    text: 'Tubig',    en: 'water' },
   { label: 'pagkain',  text: 'Pagkain',  en: 'food' },
   { label: 'tulong',   text: 'Tulong',   en: 'help' },
@@ -84,6 +84,8 @@ loadWords();
 window.addEventListener?.('storage', (e) => e.key === WORDS_KEY && loadWords());
 
 export const signText = (label) => SIGNS.find((s) => s.label === label)?.text ?? label;
+/** Spoken English for a built-in sign (first meaning), or '' for added words. */
+export const signEnglish = (label) => (SIGNS.find((s) => s.label === label)?.en ?? '').split(' / ')[0];
 
 // Single words. Words of 5+ letters also match with one typo (Whisper tiny misspells Tagalog).
 const WORDS = {

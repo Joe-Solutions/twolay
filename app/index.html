@@ -101,6 +101,12 @@
         <div id="b-card" class="word-card" hidden></div>
         <figcaption id="b-clip-label">Sign mula sa Kamay</figcaption>
       </figure>
+      <label class="lang-pick">Wika / Language
+        <select id="b-lang">
+          <option value="fil">Filipino</option>
+          <option value="en">English (isasalin / translated)</option>
+        </select>
+      </label>
       <button id="b-btn" class="big-btn giant" aria-describedby="b-hint">Boses</button>
       <p id="b-hint" class="hint">Pindutin, magsalita, at huminto. Kusa itong titigil.</p>
       <div class="meter" aria-hidden="true"><span id="b-level"></span></div>
@@ -145,6 +151,12 @@
         <textarea id="code-out" rows="3" readonly></textarea>
       </details>
       <div class="row"><button id="ping" class="secondary">Subukan ang link</button></div>
+      <label class="lang-pick">Wika ng boses sa phone na ito
+        <select id="lang">
+          <option value="fil">Filipino</option>
+          <option value="en">English: isasalin offline papunta at mula sa Filipino</option>
+        </select>
+      </label>
       <label class="check"><input id="audience-mode" type="checkbox"> Audience mode (para sa demo): ipakita rin ang sign clip sa Boses; sa Kamay, sabihin nang malakas ang na-sign mo at ang transcript</label>
     </div>
 
@@ -181,7 +193,8 @@
           <tr><td>Sign → salita</td><td>Twolay nearest-neighbour classifier, pre-trained sa 11 FSL-105 sign + mga take ng team, may "hindi kita" rejection</td><td>Sa phone (JS)</td></tr>
           <tr><td>Boses → teksto</td><td>OpenAI Whisper tiny multilingual, int8 ONNX (<code>onnx-community/whisper-tiny</code>, 43 MB), Transformers.js 4.3.1 + ONNX Runtime Web wasm</td><td>Sa phone (wasm worker)</td></tr>
           <tr><td>Teksto → sign</td><td>Keyword table, Filipino + Taglish (<code>js/signs.js</code>)</td><td>Sa phone</td></tr>
-          <tr><td>Teksto → boses</td><td id="voice-info">Kokoro-82M (int8 ONNX, Apache-2.0), boses na ef_dora; fallback: espeak-ng clips + on-device system voice</td><td>Sa phone (wasm, worker)</td></tr>
+          <tr><td>Pagsasalin English ↔ Filipino</td><td>Helsinki-NLP OPUS-MT <code>opus-mt-en-tl</code> at <code>opus-mt-tl-en</code> (Marian, ~75M params bawat isa, int8 ONNX, Apache-2.0, 134 MB bawat isa), Transformers.js</td><td>Sa phone (wasm worker)</td></tr>
+          <tr><td>Teksto → boses</td><td id="voice-info">Kokoro-82M (int8 ONNX, Apache-2.0), boses na ef_dora (Filipino) at af_heart (English, may 10k-salitang IPA lexicon mula sa espeak-ng); fallback: espeak-ng clips + on-device system voice</td><td>Sa phone (wasm, worker)</td></tr>
           <tr><td>Sign clips</td><td>Pre-recorded ng team</td><td>Sa phone (IndexedDB / app/clips)</td></tr>
         </tbody>
       </table>

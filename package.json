@@ -10,7 +10,7 @@
     "start:lan": "python3 scripts/build_manifest.py && python3 scripts/serve.py --lan --cert certs/cert.pem --key certs/key.pem",
     "cert": "bash scripts/make_cert.sh",
     "test:setup": "cd test && npm install && npx playwright install chromium && bash make_media.sh",
-    "test": "cd test && node e2e.mjs && node e2e-offline.mjs && node e2e-p2p.mjs && node e2e-train.mjs && node e2e-voice.mjs",
+    "test": "cd test && node e2e.mjs && node e2e-offline.mjs && node e2e-p2p.mjs && node e2e-train.mjs && node e2e-voice.mjs && node e2e-translate.mjs",
     "eval:pack": "cd test && node eval-pack.mjs",
     "build:pack": "bash scripts/fsl105/prepare.sh && node scripts/fsl105/build_pack.mjs && python3 scripts/build_manifest.py"
   }
