@@ -89,6 +89,11 @@
 
     <section id="screen-boses" class="screen" hidden>
       <div id="b-caption" class="caption" aria-live="assertive">Hintayin ang sign…</div>
+      <figure id="b-clipbox" class="clipbox audience-clip" hidden>
+        <video id="b-clip" muted playsinline preload="auto"></video>
+        <div id="b-card" class="word-card" hidden></div>
+        <figcaption id="b-clip-label">Sign mula sa Kamay</figcaption>
+      </figure>
       <button id="b-btn" class="big-btn giant" aria-describedby="b-hint">Boses</button>
       <p id="b-hint" class="hint">Pindutin, magsalita, at huminto. Kusa itong titigil.</p>
       <div class="meter" aria-hidden="true"><span id="b-level"></span></div>
@@ -133,6 +138,7 @@
         <textarea id="code-out" rows="3" readonly></textarea>
       </details>
       <div class="row"><button id="ping" class="secondary">Subukan ang link</button></div>
+      <label class="check"><input id="audience-mode" type="checkbox"> Audience mode (para sa demo): ipakita rin ang sign clip sa Boses, at basahin nang malakas ang transcript sa Kamay</label>
     </div>
 
     <div class="tab" data-tab="train" hidden>

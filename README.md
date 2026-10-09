@@ -132,6 +132,10 @@ only contains the app and models; no user audio, video or text is ever sent.
 
 ## Demo script
 
+**Audience mode** (⚙ → Link, off by default). Each screen normally uses only its user's sense: Boses *speaks*
+the sign for the Blind user, Kamay *shows* the text and sign clip for the Deaf user. For judges watching both
+screens, audience mode also plays the sign clip on Boses and reads the transcript aloud on Kamay. It is per device.
+
 ### A. Single laptop (required fallback)
 
 - **Where:** laptop, Chrome or Edge, `http://localhost:8000` (`python3 scripts/serve.py`). Turn Wi-Fi **off** first.

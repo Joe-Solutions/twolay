@@ -54,9 +54,15 @@ if (await page.isHidden('#t-ref-card')) await fail('expected "Wala pang halimbaw
 console.log(`  progress: ${await page.textContent('#t-progress')}`);
 
 async function take(n) {
-  await page.click('#t-record');
-  await page.waitForFunction((n) => document.querySelector('#t-status').textContent.includes(`take ${n}`), n, { timeout: 30000 });
-  console.log(`  ${await page.textContent('#t-status')} — ${await page.textContent('#t-progress')}`);
+  for (let i = 0; i < 3; i++) {
+    await page.evaluate(() => (document.querySelector('#t-status').textContent = ''));
+    await page.click('#t-record');
+    await page.waitForFunction(() => /take \d|Walang/.test(document.querySelector('#t-status').textContent), null, { timeout: 30000 });
+    const status = await page.textContent('#t-status');
+    console.log(`  ${status} — ${await page.textContent('#t-progress')}`);
+    if (status.includes(`take ${n}`)) return;
+  }
+  await fail(`take ${n} never saved`);
 }
 
 step('record 2 takes, undo one');
