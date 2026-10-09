@@ -130,7 +130,15 @@ must be within the threshold learned from the training data, and the best sign m
 
 ## Install on two phones (offline)
 
-Camera, mic and offline caching need HTTPS. Use a trusted local cert:
+Camera, mic and offline caching need HTTPS.
+
+**Easiest: the hosted copy.** Every push to `main` publishes `app/` to
+**https://joe-solutions.github.io/twolay/** (`.github/workflows/pages.yml`). On each phone, with internet once:
+open the link → ⚙ → **Offline** → *I-save ang buong app para offline* (about 220 MB) → wait for **Handa offline ✓** →
+Add to Home Screen (iPhone: Share; Android Chrome: menu → Install app). After that it runs with Wi-Fi and data off.
+The site only serves the app and model files; nothing the phones see or hear is uploaded.
+
+**Without internet: serve from the laptop.** Use a trusted local cert:
 
 ```bash
 brew install mkcert
