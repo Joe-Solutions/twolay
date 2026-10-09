@@ -11,6 +11,9 @@ const VAD_ON = 0.5;               // speech starts above this probability
 const VAD_OFF = 0.35;             // and continues while above this
 const VAD_MIN_FRAMES = 3;         // ~100 ms of speech before it counts
 const LEAD_IN_MS = 400;           // audio kept before the detected start
+// Silero shares the AI worker with Kokoro; while Kokoro loads or speaks it can answer seconds late.
+// Further behind than this, the loudness check decides instead, so speech is never missed.
+const VAD_LAG_MS = 700;
 
 // ---------- Silero VAD ----------
 let vadWorker;
@@ -191,6 +194,7 @@ export function recordUtterance({ onLevel } = {}) {
     let inSpeech = false;
     let vadStartMs = -1;
     let vadLastMs = -1;
+    let vadKeptUp = useVad;
 
     await new Promise((resolve) => {
       stopFn = resolve;
@@ -204,9 +208,9 @@ export function recordUtterance({ onLevel } = {}) {
           const rms = Math.sqrt(s / c.length);
           // Quietest chunk = room noise, so speaking right after the tap doesn't raise the bar.
           floor = Math.min(floor, Math.max(0.002, Math.min(0.03, rms)));
-          const voiced = useVad ? inSpeech : rms > Math.max(0.015, floor * 3);
-          if (!useVad && voiced) { lastVoice = now; speechAt ||= now; }
-          onLevel?.(Math.min(1, rms * 12), voiced);
+          const loud = rms > Math.max(0.015, floor * 3);
+          if (loud) { lastVoice = now; speechAt ||= now; }
+          onLevel?.(Math.min(1, rms * 12), useVad ? inSpeech : loud);
           if (useVad) vadBuf.push(...down.push(c));
         }
         if (useVad && !vadBusy && vadBuf.length >= VAD_FRAME) {
@@ -229,8 +233,9 @@ export function recordUtterance({ onLevel } = {}) {
           });
         }
         const audioMs = (vadFrames * VAD_FRAME * 1000) / TARGET_RATE;
+        vadKeptUp = useVad && now - audioMs <= VAD_LAG_MS;
         if (now > MAX_MS) return resolve();
-        if (useVad) {
+        if (vadKeptUp) {
           if (vadStartMs < 0 && audioMs > NO_SPEECH_MS) return resolve();
           if (vadStartMs >= 0 && audioMs - vadLastMs > END_SILENCE_MS) return resolve();
         } else {
@@ -242,6 +247,14 @@ export function recordUtterance({ onLevel } = {}) {
       tick();
     });
 
+    // Silero behind (shared worker busy)? Give it a moment to catch up before the loudness check decides.
+    const endedAt = performance.now() - t0;
+    const catchUp = performance.now() + 1500;
+    while (useVad && !vadKeptUp && performance.now() < catchUp) {
+      await new Promise((r) => setTimeout(r, 50));
+      if (!vadBusy) vadKeptUp = endedAt - (vadFrames * VAD_FRAME * 1000) / TARGET_RATE <= VAD_LAG_MS;
+    }
+
     srcNode.disconnect();
     node.disconnect();
     stream.getTracks().forEach((t) => t.stop());
@@ -249,7 +262,8 @@ export function recordUtterance({ onLevel } = {}) {
     await ctx.close();
     let audio = resampleTo16k(chunks, rate);
     if (useVad && vadStartMs > LEAD_IN_MS) audio = audio.slice(Math.floor(((vadStartMs - LEAD_IN_MS) * TARGET_RATE) / 1000));
-    return { audio, heardSpeech: useVad ? vadStartMs >= 0 : !!speechAt, vad: useVad ? 'silero' : 'energy' };
+    const heardSpeech = vadKeptUp ? vadStartMs >= 0 : vadStartMs >= 0 || !!speechAt;
+    return { audio, heardSpeech, vad: vadKeptUp ? 'silero' : useVad ? 'energy (silero behind)' : 'energy' };
   })();
   return { done, stop: () => stopFn?.() };
 }
