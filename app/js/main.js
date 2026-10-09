@@ -24,6 +24,7 @@ const state = {
   recording: null,
   training: false,
   auto: localStorage.getItem('twolay.auto') === '1',
+  useStarter: localStorage.getItem('twolay.starter') !== '0',
   cooldownUntil: 0,
   handStreak: 0,
 };
@@ -130,10 +131,23 @@ cam.onFrame = (frame) => {
   if (state.handStreak >= 4 && performance.now() > state.cooldownUntil) kamayCapture();
 };
 
+let starterPack;
+function loadStarter() {
+  starterPack ??= fetch(new URL('../packs/fsl105.json', import.meta.url))
+    .then((r) => (r.ok ? r.json() : null))
+    .then((p) => ({
+      samples: (p?.samples ?? []).map((s, i) => ({ ...s, id: `starter-${i}` })),
+      clips: new Set(p?.bundledClips ?? []),
+    }))
+    .catch(() => ({ samples: [], clips: new Set() }));
+  return starterPack;
+}
+
 async function retrain() {
-  const samples = await store.samples();
-  classifier.fit(samples);
-  renderTrainGrid(samples);
+  const own = await store.samples();
+  const starter = state.useStarter ? await loadStarter() : { samples: [], clips: new Set() };
+  classifier.fit([...own, ...starter.samples]);
+  renderTrainGrid(own, starter);
 }
 
 async function kamayCapture() {
@@ -216,19 +230,22 @@ $('#k-clip').parentElement.addEventListener('click', () => {
 });
 
 // ---------- training ----------
-function renderTrainGrid(samples) {
+function renderTrainGrid(own, starter) {
   const counts = {};
-  for (const s of samples) counts[s.label] = (counts[s.label] || 0) + 1;
+  const starterCounts = {};
+  for (const s of own) counts[s.label] = (counts[s.label] || 0) + 1;
+  for (const s of starter.samples) starterCounts[s.label] = (starterCounts[s.label] || 0) + 1;
   store.clips().then((clips) => {
-    const hasClip = new Set(clips.map((c) => c.label));
+    const hasClip = new Set([...clips.map((c) => c.label), ...starter.clips]);
     const test = classifier.selfTest();
     $('#train-grid').innerHTML = '';
     for (const { label, text } of SIGNS) {
       const n = counts[label] || 0;
+      const m = starterCounts[label] || 0;
       const t = test.perLabel[label];
       const cell = document.createElement('div');
-      cell.className = `cell ${n >= SAMPLES_TARGET ? 'good' : n < 2 ? 'low' : ''}`;
-      cell.innerHTML = `<b>${text}</b>${n} sample${n === 1 ? '' : 's'}<br>clip: ${hasClip.has(label) ? '✓' : '—'}${t ? `<br>self-test ${t.ok}/${t.n}` : ''}`;
+      cell.className = `cell ${n + m >= SAMPLES_TARGET ? 'good' : n + m < 2 ? 'low' : ''}`;
+      cell.innerHTML = `<b>${text}</b>iyo: ${n}${m ? ` · FSL-105: ${m}` : ''}<br>clip: ${hasClip.has(label) ? '✓' : '—'}${t ? `<br>self-test ${t.ok}/${t.n}` : ''}`;
       $('#train-grid').append(cell);
     }
     $('#train-eval').textContent = test.accuracy == null
@@ -321,6 +338,12 @@ $('#train-clear').onclick = async () => {
   if (!confirm('Burahin lahat ng training sample at clip sa phone na ito?')) return;
   indexedDB.deleteDatabase('twolay');
   location.reload();
+};
+$('#use-starter').checked = state.useStarter;
+$('#use-starter').onchange = (e) => {
+  state.useStarter = e.target.checked;
+  localStorage.setItem('twolay.starter', state.useStarter ? '1' : '0');
+  retrain();
 };
 $('#auto-mode').checked = state.auto;
 $('#auto-mode').onchange = (e) => {

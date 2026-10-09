@@ -12,3 +12,9 @@
 | Word clips rendered with espeak-ng (the tool is GPL-3.0; it is not shipped, only its audio output) | `app/audio/` | — |
 
 All files are unmodified upstream releases except two one-line patches in `scripts/vendor.sh`: the MediaPipe telemetry patch, and splitting one Mistral class-name string literal in Transformers.js (GitHub secret scanning misreads it as an API key; the value is unchanged).
+
+## Training data
+
+| Data | Path | License |
+|---|---|---|
+| FSL-105: The Video Filipino Sign Language Sign Database of Introductory 105 FSL Signs (I. J. L. Tupal, M. K. Cabatuan). Clips for YES, NO, HOW ARE YOU, THANK YOU, CORRECT, WRONG were converted to hand-landmark sequences and one 480p playback clip per sign. https://data.mendeley.com/datasets/48y2y99mb9/2 | `app/packs/fsl105.json`, `app/clips/*.mp4` | CC BY 4.0 |
