@@ -1,0 +1,14 @@
+# Third-party components shipped in `app/`
+
+| Component | Path | License |
+|---|---|---|
+| MediaPipe Tasks Vision 1.1.0 (telemetry flush disabled by `scripts/vendor.sh`) | `app/vendor/mediapipe/` | Apache-2.0 |
+| MediaPipe Hand Landmarker model | `app/models/mediapipe/hand_landmarker.task` | Apache-2.0 |
+| Transformers.js 4.3.1 | `app/vendor/transformers/` | Apache-2.0 |
+| ONNX Runtime Web 1.31.0-dev | `app/vendor/ort/` | MIT |
+| OpenAI Whisper tiny (ONNX export by onnx-community) | `app/models/onnx-community/whisper-tiny/` | MIT |
+| qrcode-generator 2.0.4 | `app/vendor/qr/qrcode.mjs` | MIT |
+| jsQR 1.4.0 | `app/vendor/qr/jsQR.js` | Apache-2.0 |
+| Word clips rendered with espeak-ng (the tool is GPL-3.0; it is not shipped, only its audio output) | `app/audio/` | — |
+
+All files are unmodified upstream releases except two one-line patches in `scripts/vendor.sh`: the MediaPipe telemetry patch, and splitting one Mistral class-name string literal in Transformers.js (GitHub secret scanning misreads it as an API key; the value is unchanged).

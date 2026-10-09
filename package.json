@@ -1,0 +1,15 @@
+{
+  "name": "tulay",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Offline two-way Deaf <-> Blind communicator: 12 Filipino signs, local Whisper, phone-to-phone link.",
+  "scripts": {
+    "setup": "bash scripts/vendor.sh",
+    "manifest": "python3 scripts/build_manifest.py",
+    "start": "python3 scripts/build_manifest.py && python3 scripts/serve.py",
+    "start:lan": "python3 scripts/build_manifest.py && python3 scripts/serve.py --lan --cert certs/cert.pem --key certs/key.pem",
+    "cert": "bash scripts/make_cert.sh",
+    "test:setup": "cd test && npm install && npx playwright install chromium && bash make_media.sh",
+    "test": "cd test && node e2e.mjs && node e2e-offline.mjs && node e2e-p2p.mjs"
+  }
+}

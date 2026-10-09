@@ -1,0 +1,11 @@
+{
+  "name": "Tulay",
+  "short_name": "Tulay",
+  "description": "Sign ↔ boses, offline, phone to phone.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#101418",
+  "theme_color": "#101418",
+  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

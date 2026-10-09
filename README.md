@@ -1,0 +1,165 @@
+# Tulay
+
+**Tulay** ("bridge") is a two-way, fully offline conversation app between a **Deaf** person who signs and a **Blind** person who speaks.
+
+```
+Person 1 (Deaf)                                     Person 2 (Blind)
+signs "tulong" ─▶ MediaPipe Hands ─▶ 12-sign kNN ─▶ {"label":"tulong"} ─▶ local voice says "Tulong"
+sees "Ano ang sakit?" + sakit clip ◀─ {"text":..,"signs":["sakit"]} ◀─ Whisper tiny ◀─ says "Ano ang sakit?"
+```
+
+- Two roles, one big button each: **Kamay** (hands, for the signer) and **Boses** (voice, for the speaker).
+- Everything runs on the phone: hand tracking, sign classifier, speech-to-text, text-to-speech.
+- The only network traffic is the text message between the two phones, over a direct WebRTC DataChannel
+  on the hotspot (no STUN, no TURN, no signalling server; pairing is done by scanning QR codes).
+- If the link drops, each phone keeps recognizing, captioning and playing back on its own.
+- Demo mode: two windows on one laptop, linked with `BroadcastChannel` (no network at all).
+
+## Models and engines (full disclosure)
+
+| Job | Model / engine | Size | Runs |
+|---|---|---|---|
+| Hand tracking | MediaPipe Hand Landmarker `hand_landmarker.task` (float16) + MediaPipe Tasks Vision 1.1.0 wasm (SIMD and no-SIMD builds) | 7.8 MB + 25 MB | phone, wasm (GPU→CPU fallback) |
+| Sign → word | Tulay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Trained in-app on the team's own clips. | KBs (IndexedDB) | phone, JS |
+| Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog | 43 MB + 39 MB runtime | phone, Web Worker |
+| Text → sign | Keyword table for Filipino + Taglish, one-typo tolerant (`app/js/signs.js`) | — | phone |
+| Text → voice | On-device system voice for Filipino if the phone has one (`speechSynthesis`, `localService` voices only), otherwise 12 clips pre-rendered with **espeak-ng** (Indonesian voice; Tagalog spelling is phonetic) in `app/audio/` | 0.5 MB | phone |
+| Sign playback | Pre-recorded clips by the team (saved when training, or `app/clips/<label>.mp4`) | — | phone |
+
+Not used anywhere: cloud STT/TTS, sign-language APIs, generated avatars, API keys, uploads.
+
+**Telemetry removed.** MediaPipe Tasks Vision 1.1.0 contains a usage logger that POSTs to
+`odml.pa.googleapis.com` every 60 s. `scripts/vendor.sh` patches it out, the page's
+Content-Security-Policy (`connect-src 'self' blob: data:`) would block it anyway, and the in-app
+guard logs any blocked attempt in the Network log.
+
+## Setup (once, on the build laptop, with internet)
+
+```bash
+cd tulay
+npm run setup          # downloads MediaPipe, Whisper tiny, ONNX Runtime, QR libs into app/; renders app/audio
+npm start              # http://localhost:8000
+```
+
+`brew install espeak-ng` first if you want `npm run setup` to render the voice clips (already done in this repo).
+After you change any file in `app/`, run `npm run manifest` so phones pick up the new version.
+
+## Train the 12 signs
+
+All training data stays on the device (IndexedDB). Two ways to train; both feed the same classifier.
+
+1. **Record live:** ⚙ → Turuan → *Mag-record gamit ang camera*. Pick a sign in the yellow bar, tap **Kamay**,
+   sign, drop your hands. 5 takes per sign; it advances to the next sign automatically. The first take of
+   each sign is kept as that sign's playback clip.
+2. **Import the team's clips:** ⚙ → Turuan → *I-import ang video clips*. File names start with the sign:
+   `tulong_01.mp4`, `sakit-2.mov`, `salamat 3.mp4`.
+
+The Turuan tab shows samples per sign, whether a clip exists, and a leave-one-out self-test score.
+**Export pack** / **Import pack** copies the trained set and clips to the other phone or the demo laptop as one JSON file.
+
+Unknown or unclear signs show **"hindi kita"** locally and are not sent. Two checks reject them: the distance
+must be within the threshold learned from the training data, and the best sign must clearly beat the runner-up.
+
+## Install on two phones (offline)
+
+Camera, mic and offline caching need HTTPS. Use a trusted local cert:
+
+```bash
+brew install mkcert
+npm run cert                      # prints the rootCA.pem to install + trust on each phone
+npm run start:lan                 # https://<laptop-ip>:8443
+```
+
+On each phone (laptop on the same Wi-Fi or hotspot): open the URL → ⚙ → **Offline** →
+*I-save ang buong app para offline* → wait for **Handa offline ✓** → Share → *Add to Home Screen*.
+After that the laptop is not needed. Import the training pack on the signer's phone.
+
+Alternative: put `app/` on any static HTTPS host you control and open it once on each phone. That download
+only contains the app and models; no user audio, video or text is ever sent.
+
+## Demo script
+
+### A. Single laptop (required fallback)
+
+- **Where:** laptop, Chrome or Edge, `http://localhost:8000` (`npm start`). Turn Wi-Fi **off** first.
+- **Inputs:** tap **Demo mode: dalawang window sa isang laptop**. Allow the camera in the Kamay window and the
+  mic in the Boses window. If the second window is blocked, allow pop-ups or open
+  `http://localhost:8000/?role=boses&link=demo` yourself.
+- **Expected:** both windows show the green pill **Konektado (demo)**.
+- **Step 1:** in the Kamay window press **Kamay** (or Space) and sign **tulong**.
+  Expected: Kamay caption "Ikaw: Tulong", status "Tulong — NN% → naipadala"; Boses window shows "Kamay: Tulong",
+  plays a two-tone chime and says **"Tulong"**.
+- **Step 2:** in the Boses window press **Boses** (or Space) and say **"Ano ang sakit?"**, then stop talking.
+  Expected: the button turns red ("Nakikinig…"), then "Isinusulat…" for about 1–2 s; Boses caption shows the
+  transcript; Kamay window shows "Boses: Ano ang sakit?" and plays the **SAKIT** clip.
+- **Step 3:** ⚙ → **Network log**. Expected: "Requests palabas ng dalawang device: **0**", only `[local]` loads, and
+  `[out]`/`[in]` lines carrying just the JSON text messages.
+- **Send back:** a screenshot of the Network log tab and of both windows after step 2.
+
+### B. Two phones on a hotspot
+
+- **Where:** Phone A turns on its hotspot with **mobile data off** (so the hotspot has no internet). Phone B joins
+  it. Wi-Fi to any other network is off. Open Tulay from the home screen on both phones.
+- **Pair:** both phones ⚙ → Link. Phone A: *Gumawa ng pairing code* (QR appears). Phone B: *I-scan ang code ni A*
+  (rear camera), and an answer QR appears. Phone A: *I-scan ang sagot ni B*.
+  Expected: both show **Konektado (phone)**; the Network log shows
+  `p2p route: <ip>:… (host) <-> <ip>:… (host) — direct, no relay server`, with private hotspot addresses
+  (iPhone hotspot: `172.20.10.x`; Android: usually `192.168.x.x` or `10.x.x.x`).
+- **Roles:** Phone A → **Kamay**, Phone B → **Boses**. Then run steps 1–3 from part A.
+- **Offline switch:** turn the hotspot off mid-demo. Expected: the pill turns red, **Nawala ang link**; signing still
+  shows "Tulong" locally with "(walang link, dito lang)", and speaking still transcribes on the Boses phone.
+  To reconnect, pair again.
+- **Send back:** the Network log screenshot from both phones.
+
+Bluetooth: browsers cannot open raw Bluetooth sockets, but **Bluetooth tethering** (personal hotspot over
+Bluetooth) gives the phones an IP link, and the same WebRTC pairing works over it.
+
+## Automated tests
+
+```bash
+npm run test:setup   # once: Playwright + Chromium + synthetic hand clips + espeak "Ano ang sakit?"
+npm test
+```
+
+- `e2e.mjs`: two demo windows, a fake camera showing the trained "tulong" hand, and a fake mic saying
+  "Ano ang sakit?". Checks the Boses window receives and speaks *Tulong*, the Kamay window gets the
+  transcript and plays the *sakit* clip, and **0 requests leave 127.0.0.1** (any other request is aborted and counted).
+- `e2e-offline.mjs`: an untrained two-hand shape gives "hindi kita" and sends nothing; closing the other window
+  shows "Nawala ang link" and recognition still works; after *save for offline* the server is killed and
+  both roles reload, load their models and transcribe from cache.
+- `e2e-p2p.mjs`: two isolated browser contexts pair over WebRTC using the same codes the QR carries, exchange a
+  message, and log a host-to-host route.
+
+The synthetic clips are still photos sliding across the frame. They prove the pipeline, not real sign accuracy.
+
+## Limits (honest)
+
+- 12 signs only, trained by the team. Accuracy depends on the training takes. Record in the same light and at the
+  same distance you will demo in, and use 5+ takes per sign.
+- Whisper **tiny** is weak at Tagalog. The keyword table absorbs common misspellings ("Anong ang sakit" still maps
+  to *sakit*), but long sentences will be rough. Short, clear phrases work best. For better accuracy, swap in
+  `onnx-community/whisper-base` (about 3× slower) in `vendor.sh` and `app/js/whisper-worker.js`.
+- The espeak-ng voice is robotic. A phone with an offline Filipino system voice (Android: Google TTS → Filipino,
+  downloaded) is used automatically instead.
+- Pairing must be redone after the link drops, by scanning the QR codes again.
+
+## Layout
+
+```
+app/                    the whole app (static, no build step)
+  index.html            CSP locks network to this origin
+  js/main.js            screens, roles, setup dialog
+  js/hands.js           MediaPipe wrapper + landmark features
+  js/classifier.js      12-sign kNN with "hindi kita" rejection
+  js/camera.js          camera + one-sign segmentation
+  js/stt.js             mic + VAD -> whisper-worker.js
+  js/signs.js           labels + Filipino/Taglish phrase map
+  js/voice.js           local TTS + earcons
+  js/link.js            DemoLink (BroadcastChannel), P2PLink (WebRTC, QR pairing)
+  js/netlog.js          network log + offline guard
+  js/offline.js, sw.js  save-for-offline cache
+  vendor/, models/      vendored runtimes and models (from scripts/vendor.sh)
+  audio/                espeak-ng word clips
+scripts/                vendor.sh, make_voice.sh, build_manifest.py, serve.py, make_cert.sh
+test/                   Playwright end-to-end tests
+```

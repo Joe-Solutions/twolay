@@ -1,0 +1,8 @@
+.vendor-tmp/
+certs/
+test/node_modules/
+test/*.png
+test/*.y4m
+test/clips/
+test/*.jpg
+test/*.wav
