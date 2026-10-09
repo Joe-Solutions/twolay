@@ -2,7 +2,7 @@
 import { SIGNS, signText, isCustom, addWord, removeWord } from './signs.js';
 import { SignCam } from './camera.js';
 import { trimFrames } from './classifier.js';
-import { store } from './store.js';
+import { store, shippedClip } from './store.js';
 import { earcon } from './voice.js';
 
 export const TAKES_TARGET = 5;
@@ -70,6 +70,8 @@ export function createTrainer({ classifier, retrain, clipURL, toast, onWordsChan
     const card = $('#t-ref-card');
     if (refURL?.startsWith('blob:')) URL.revokeObjectURL(refURL);
     refURL = await clipURL(label);
+    $('#t-clear-ref').hidden = !refURL;
+    $('#t-restore-ref').hidden = !!refURL || !shippedClip.hidden(label);
     if (refURL) {
       card.hidden = true;
       video.src = refURL;
@@ -209,6 +211,20 @@ export function createTrainer({ classifier, retrain, clipURL, toast, onWordsChan
     setStatus(`Natanggal ang "${gone}"`);
   }
 
+  async function clearRef() {
+    if (!confirm(`Burahin ang halimbawa ng "${signText(label)}"? Ang susunod mong take ang magiging bagong halimbawa.`)) return;
+    await store.deleteClip(label);
+    if (await clipURL(label)) shippedClip.setHidden(label, true);
+    await showReference();
+    setStatus('Nabura ang halimbawa. I-record para gumawa ng bago.');
+  }
+
+  async function restoreRef() {
+    shippedClip.setHidden(label, false);
+    await showReference();
+    setStatus(refURL ? 'Naibalik ang FSL-105 halimbawa' : 'Walang FSL-105 halimbawa ang sign na ito');
+  }
+
   function next() {
     const i = SIGNS.findIndex((s) => s.label === label);
     select(SIGNS[(i + 1) % SIGNS.length].label);
@@ -220,6 +236,8 @@ export function createTrainer({ classifier, retrain, clipURL, toast, onWordsChan
   $('#t-next').onclick = next;
   $('#t-clear-sign').onclick = clearSign;
   $('#t-remove-word').onclick = remove;
+  $('#t-clear-ref').onclick = clearRef;
+  $('#t-restore-ref').onclick = restoreRef;
   $('#t-add').onsubmit = add;
 
   return {

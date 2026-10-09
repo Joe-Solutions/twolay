@@ -62,6 +62,19 @@ export const store = {
   },
 };
 
+// Shipped example clips (app/clips/) the team chose to hide, so their own take becomes the example.
+const HIDDEN_KEY = 'twolay.hiddenClips';
+const hiddenSet = () => new Set(JSON.parse(localStorage.getItem(HIDDEN_KEY) || '[]'));
+export const shippedClip = {
+  hidden: (label) => hiddenSet().has(label),
+  setHidden(label, on) {
+    const s = hiddenSet();
+    if (on) s.add(label);
+    else s.delete(label);
+    localStorage.setItem(HIDDEN_KEY, JSON.stringify([...s]));
+  },
+};
+
 function blobToDataURL(blob) {
   return new Promise((res) => {
     const r = new FileReader();
