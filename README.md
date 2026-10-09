@@ -94,13 +94,20 @@ Sign Language* video series, the FSL Buddy app (De La Salle-College of Saint Ben
 
 All training data stays on the device (IndexedDB). Two ways to train; both feed the same classifier.
 
-1. **Record live:** ⚙ → Turuan → *Mag-record gamit ang camera*. Pick a sign in the yellow bar, tap **Kamay**,
-   sign, drop your hands. 5 takes per sign; it advances to the next sign automatically. The first take of
-   each sign is kept as that sign's playback clip.
+1. **Record live, Turuan screen:** on the home screen tap **Turuan** (Train FSL), or ⚙ → Turuan →
+   *Buksan ang Turuan*. Or open `http://localhost:8000/?role=train` directly.
+   - The chips at the bottom list all 12 signs with your takes (`n/5`) and any FSL-105 samples. Green ✓ = enough.
+   - Left: an example of the sign (FSL-105 clip, or your own first take). Right: your camera with the hand skeleton.
+   - Tap **I-record** (or Space). After the 3-2-1 beeps, sign once, then drop your hands. That's one take.
+   - If a take looks like a different sign, the status line warns you ("kahawig ito ng …").
+   - **Bawiin ang huling take** removes a bad take. **Burahin ang takes nito** clears that sign.
+   - **Subukan** signs once without saving and shows what Twolay recognises.
+   - After 5 takes it moves on to the next unfinished sign. The first take of a sign without a clip becomes
+     its playback clip on the Kamay screen.
 2. **Import the team's clips:** ⚙ → Turuan → *I-import ang video clips*. File names start with the sign:
    `tulong_01.mp4`, `sakit-2.mov`, `salamat 3.mp4`.
 
-The Turuan tab shows samples per sign, whether a clip exists, and a leave-one-out self-test score.
+The ⚙ → Turuan tab shows samples per sign, whether a clip exists, and a leave-one-out self-test score.
 **Export pack** / **Import pack** copies the trained set and clips to the other phone or the demo laptop as one JSON file.
 
 Unknown or unclear signs show **"hindi kita"** locally and are not sent. Two checks reject them: the distance
@@ -175,6 +182,8 @@ npm test
   both roles reload, load their models and transcribe from cache.
 - `e2e-p2p.mjs`: two isolated browser contexts pair over WebRTC using the same codes the QR carries, exchange a
   message, and log a host-to-host route.
+- `e2e-train.mjs`: the Turuan screen records takes from the fake camera, undoes one, saves the playback clip,
+  recognises *Tulong* with **Subukan**, and turns the camera off on Home.
 
 The synthetic clips are still photos sliding across the frame. They prove the pipeline, not real sign accuracy.
 

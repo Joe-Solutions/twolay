@@ -1,5 +1,5 @@
 {
- "version": "d095b764d03a",
+ "version": "31082e7608bf",
  "files": [
   "./",
   "./audio/ENGINE.txt",
@@ -36,6 +36,7 @@
   "./js/signs.js",
   "./js/store.js",
   "./js/stt.js",
+  "./js/trainer.js",
   "./js/voice.js",
   "./js/whisper-worker.js",
   "./manifest.webmanifest",

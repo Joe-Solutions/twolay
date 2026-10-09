@@ -34,6 +34,10 @@
           <span>Ako ay nagsasalita (Bulag)</span>
         </button>
       </div>
+      <button id="train-btn" class="train-entry">
+        <span class="big-word">Turuan</span>
+        <span>Train FSL: ituro ang mga sign gamit ang camera</span>
+      </button>
       <button id="demo-btn" class="secondary">Demo mode: dalawang window sa isang laptop</button>
     </section>
 
@@ -51,14 +55,36 @@
           <figcaption id="k-status">Camera…</figcaption>
         </figure>
       </div>
-      <div id="train-bar" class="train-bar" hidden>
-        <strong>Training:</strong>
-        <select id="train-label" aria-label="Sign na ire-record"></select>
-        <span id="train-count"></span>
-        <button id="train-done" class="secondary">Tapos</button>
-      </div>
       <button id="k-btn" class="big-btn">Kamay</button>
       <ol id="k-history" class="history" aria-label="Kasaysayan ng usapan"></ol>
+    </section>
+
+    <section id="screen-train" class="screen" hidden>
+      <div class="train-head">
+        <div><span id="t-word" class="t-word">—</span> <small id="t-en" class="muted"></small></div>
+        <div id="t-progress" class="t-progress"></div>
+      </div>
+      <div class="stage">
+        <figure class="clipbox">
+          <video id="t-ref" muted playsinline loop preload="auto"></video>
+          <div id="t-ref-card" class="word-card" hidden></div>
+          <figcaption id="t-ref-label">Halimbawa</figcaption>
+        </figure>
+        <figure class="cambox">
+          <video id="t-cam" muted playsinline autoplay></video>
+          <canvas id="t-overlay"></canvas>
+          <div id="t-count" class="countdown" hidden aria-live="assertive"></div>
+          <figcaption id="t-status" aria-live="polite">Camera…</figcaption>
+        </figure>
+      </div>
+      <button id="t-record" class="big-btn">I-record</button>
+      <div class="row t-tools">
+        <button id="t-test" class="secondary">Subukan</button>
+        <button id="t-undo" class="secondary" disabled>Bawiin ang huling take</button>
+        <button id="t-next" class="secondary">Susunod na sign ›</button>
+        <button id="t-clear-sign" class="danger">Burahin ang takes nito</button>
+      </div>
+      <div id="t-chips" class="chips" aria-label="Pumili ng sign"></div>
     </section>
 
     <section id="screen-boses" class="screen" hidden>
@@ -114,7 +140,7 @@
       <div id="train-grid" class="grid"></div>
       <p id="train-eval" class="muted"></p>
       <div class="row">
-        <button id="train-start">Mag-record gamit ang camera</button>
+        <button id="train-start">Buksan ang Turuan (camera)</button>
         <label class="file-btn">I-import ang video clips<input id="import-clips" type="file" accept="video/*" multiple hidden></label>
       </div>
       <p class="muted">Pangalan ng file = sign, hal. <code>tulong_01.mp4</code>, <code>sakit-2.mov</code>.</p>
