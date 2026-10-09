@@ -7,6 +7,7 @@
 | Transformers.js 4.3.1 | `app/vendor/transformers/` | Apache-2.0 |
 | ONNX Runtime Web 1.31.0-dev | `app/vendor/ort/` | MIT |
 | OpenAI Whisper tiny (ONNX export by onnx-community) | `app/models/onnx-community/whisper-tiny/` | MIT |
+| Kokoro-82M v1.0 by hexgrad (int8 ONNX export by onnx-community), voices `ef_dora`, `em_alex` | `app/models/onnx-community/Kokoro-82M-v1.0-ONNX/` | Apache-2.0 |
 | qrcode-generator 2.0.4 | `app/vendor/qr/qrcode.mjs` | MIT |
 | jsQR 1.4.0 | `app/vendor/qr/jsQR.js` | Apache-2.0 |
 | Word clips rendered with espeak-ng (the tool is GPL-3.0; it is not shipped, only its audio output) | `app/audio/` | — |

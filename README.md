@@ -23,7 +23,7 @@ sees "Ano ang sakit?" + sakit clip ◀─ {"text":..,"signs":["sakit"]} ◀─ W
 | Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Ships pre-trained on 11 signs from the FSL-105 dataset (Deaf signers, CC BY 4.0); the team adds the rest in-app. | 3 MB pack + IndexedDB | phone, JS |
 | Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog | 43 MB + 39 MB runtime | phone, Web Worker |
 | Text → sign | Keyword table for Filipino + Taglish, one-typo tolerant (`app/js/signs.js`) | — | phone |
-| Text → voice | On-device system voice for Filipino if the phone has one (`speechSynthesis`, `localService` voices only), otherwise 17 clips pre-rendered with **espeak-ng** (Indonesian voice; Tagalog spelling is phonetic) in `app/audio/` | 0.5 MB | phone |
+| Text → voice | **Kokoro-82M v1.0** (hexgrad, Apache-2.0), int8 ONNX via Transformers.js in a worker, Spanish voice `ef_dora`. It has no Filipino voice, so `app/js/tl-g2p.js` turns Tagalog spelling into IPA (letter rules, penultimate stress, a short final-stress word list). About 1–3 s per phrase on a laptop. Until it has loaded, or if it fails: an on-device Filipino system voice (`speechSynthesis`, `localService` only), then 17 clips pre-rendered with **espeak-ng** in `app/audio/` | 92 MB + 0.5 MB | phone / laptop, wasm |
 | Sign playback | FSL-105 clips for the 11 starter signs (`app/clips/`), plus clips the team records | 0.5 MB | phone |
 
 Not used anywhere: cloud STT/TTS, sign-language APIs, generated avatars, API keys, uploads.
@@ -207,6 +207,8 @@ npm test
   message, and log a host-to-host route.
 - `e2e-train.mjs`: the Turuan screen records takes from the fake camera, undoes one, saves the playback clip,
   recognises *Tulong* with **Subukan**, and turns the camera off on Home.
+- `e2e-voice.mjs`: loads Kokoro from this origin only, speaks six Tagalog phrases, and saves them to
+  `test/voice-samples/*.wav` so you can listen.
 
 The synthetic clips are still photos sliding across the frame. They prove the pipeline, not real sign accuracy.
 

@@ -73,6 +73,14 @@ for f in config.json generation_config.json preprocessor_config.json tokenizer.j
   [ -s "$out" ] || curl -fsSL "$HF/$f" -o "$out" || echo "   (optional file missing: $f)"
 done
 
+echo "==> Kokoro-82M v1.0 (int8) text-to-speech + Spanish voices"
+KOKORO_REPO="onnx-community/Kokoro-82M-v1.0-ONNX"
+mkdir -p "$APP/models/$KOKORO_REPO/onnx" "$APP/models/$KOKORO_REPO/voices"
+for f in config.json tokenizer.json tokenizer_config.json onnx/model_quantized.onnx voices/ef_dora.bin voices/em_alex.bin; do
+  out="$APP/models/$KOKORO_REPO/$f"
+  [ -s "$out" ] || curl -fsSL "https://huggingface.co/$KOKORO_REPO/resolve/main/$f" -o "$out"
+done
+
 echo "==> QR pairing libs (qrcode-generator, jsQR)"
 fetch_pkg qrcode-generator 2.0.4 qrgen
 fetch_pkg jsqr 1.4.0 jsqr
