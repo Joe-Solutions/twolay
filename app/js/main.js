@@ -2,6 +2,7 @@ import { netlog, installGuard } from './netlog.js';
 installGuard();
 
 import { SIGNS, LABELS, UNKNOWN_TEXT, signText, textToSigns } from './signs.js';
+import { createTrainer, TAKES_TARGET } from './trainer.js';
 import { SignClassifier, trimFrames } from './classifier.js';
 import { SignCam } from './camera.js';
 import { framesFromVideoFile } from './hands.js';
@@ -14,7 +15,6 @@ import { registerSW, offlineStatus, cacheAll } from './offline.js';
 
 const $ = (s) => document.querySelector(s);
 const params = new URLSearchParams(location.search);
-const SAMPLES_TARGET = 5;
 
 const state = {
   role: null,
@@ -22,7 +22,6 @@ const state = {
   busy: false,
   capture: null,
   recording: null,
-  training: false,
   auto: localStorage.getItem('twolay.auto') === '1',
   useStarter: localStorage.getItem('twolay.starter') !== '0',
   cooldownUntil: 0,
@@ -118,7 +117,7 @@ async function enterKamay() {
   await retrain();
   try {
     await cam.start();
-    $('#k-status').textContent = classifier.ready ? 'Handa. Pindutin ang Kamay at mag-sign.' : 'Wala pang training: ⚙ → Turuan';
+    $('#k-status').textContent = classifier.ready ? 'Handa. Pindutin ang Kamay at mag-sign.' : 'Wala pang training: Home → Turuan';
   } catch (err) {
     $('#k-status').textContent = `Camera error: ${err.message}`;
   }
@@ -126,7 +125,7 @@ async function enterKamay() {
 
 cam.onFrame = (frame) => {
   if (!state.capture) $('#k-status').dataset.hands = frame.hands;
-  if (!state.auto || state.training || state.capture || state.role !== 'kamay') return;
+  if (!state.auto || state.capture || state.role !== 'kamay') return;
   state.handStreak = frame.hands ? state.handStreak + 1 : 0;
   if (state.handStreak >= 4 && performance.now() > state.cooldownUntil) kamayCapture();
 };
@@ -148,28 +147,26 @@ async function retrain() {
   const starter = state.useStarter ? await loadStarter() : { samples: [], clips: new Set() };
   classifier.fit([...own, ...starter.samples]);
   renderTrainGrid(own, starter);
+  return { own, starter };
 }
 
 async function kamayCapture() {
   if (state.capture) return state.capture.stop();
   if (!cam.running) return toast('Hindi pa bukas ang camera');
-  if (!state.training && !classifier.ready) return toast('Wala pang training. ⚙ → Turuan', 3500);
+  if (!classifier.ready) return toast('Wala pang training. Home → Turuan', 3500);
   const btn = $('#k-btn');
   btn.classList.add('live');
   btn.textContent = 'Ipakita ang kamay…';
   state.capture = cam.captureSign({
-    recordClip: state.training,
     onState: (s) => (btn.textContent = s === 'signing' ? 'Nagsa-sign…' : 'Ipakita ang kamay…'),
   });
-  const { frames, clip } = await state.capture.done;
+  const { frames } = await state.capture.done;
   state.capture = null;
   state.handStreak = 0;
   state.cooldownUntil = performance.now() + 1200;
   btn.classList.remove('live');
   btn.textContent = 'Kamay';
   const trimmed = trimFrames(frames);
-
-  if (state.training) return saveTrainingSample(trimmed, clip);
 
   const res = classifier.predict(trimmed);
   if (!res.label) {
@@ -244,55 +241,41 @@ function renderTrainGrid(own, starter) {
       const m = starterCounts[label] || 0;
       const t = test.perLabel[label];
       const cell = document.createElement('div');
-      cell.className = `cell ${n + m >= SAMPLES_TARGET ? 'good' : n + m < 2 ? 'low' : ''}`;
+      cell.className = `cell ${n + m >= TAKES_TARGET ? 'good' : n + m < 2 ? 'low' : ''}`;
       cell.innerHTML = `<b>${text}</b>iyo: ${n}${m ? ` · FSL-105: ${m}` : ''}<br>clip: ${hasClip.has(label) ? '✓' : '—'}${t ? `<br>self-test ${t.ok}/${t.n}` : ''}`;
       $('#train-grid').append(cell);
     }
     $('#train-eval').textContent = test.accuracy == null
       ? 'Self-test: kailangan ng 2+ sample.'
       : `Self-test (leave-one-out): ${Math.round(test.accuracy * 100)}% tama sa ${test.n} sample. Threshold ${classifier.threshold.toFixed(3)}.`;
-    $('#train-count').textContent = `${counts[$('#train-label').value] || 0}/${SAMPLES_TARGET}`;
   });
 }
 
-async function saveTrainingSample(trimmed, clip) {
-  const label = $('#train-label').value;
-  if (!trimmed) {
-    earcon('error');
-    return toast('Walang sapat na kamay na nakita, ulitin');
-  }
-  await store.addSample(label, trimmed, 'camera');
-  if (clip?.size && !(await store.clip(label))) await store.putClip(label, clip);
-  const n = (await store.samples()).filter((s) => s.label === label).length;
-  toast(`${signText(label)}: ${n} sample`);
-  earcon('sent');
-  if (n >= SAMPLES_TARGET) {
-    const next = LABELS[LABELS.indexOf(label) + 1];
-    if (next) $('#train-label').value = next;
-  }
-  await retrain();
+const trainer = createTrainer({ classifier, retrain, clipURL, toast });
+
+async function enterTrain() {
+  unlockAudio();
+  if (state.role === 'kamay') cam.stop();
+  showScreen('screen-train');
+  document.title = 'Twolay — Turuan';
+  history.replaceState(null, '', `?role=train${state.link?.kind === 'demo' ? '&link=demo' : ''}`);
+  await trainer.enter();
 }
+const trainOpen = () => !$('#screen-train').hidden;
 
-$('#train-label').innerHTML = SIGNS.map((s) => `<option value="${s.label}">${s.text}</option>`).join('');
-$('#train-label').onchange = () => retrain();
-
-$('#train-start').onclick = async () => {
+$('#train-btn').onclick = () => enterTrain();
+$('#train-start').onclick = () => {
   $('#setup').close();
-  state.training = true;
-  $('#train-bar').hidden = false;
-  if (state.role !== 'kamay') await enterRole('kamay');
-};
-$('#train-done').onclick = () => {
-  state.training = false;
-  $('#train-bar').hidden = true;
-  $('#k-status').textContent = classifier.ready ? 'Handa. Pindutin ang Kamay at mag-sign.' : 'Wala pang training';
+  enterTrain();
 };
 
 $('#import-clips').onchange = async (e) => {
   const files = [...e.target.files];
   e.target.value = '';
   const wasRunning = cam.running;
+  const wasTraining = trainOpen();
   cam.stop();
+  trainer.leave();
   const byLen = [...LABELS].sort((a, b) => b.length - a.length);
   let ok = 0;
   const skipped = [];
@@ -314,6 +297,7 @@ $('#import-clips').onchange = async (e) => {
   await retrain();
   toast(`Na-import: ${ok}. ${skipped.length ? `Nilaktawan: ${skipped.join(', ')}` : ''}`, 6000);
   if (wasRunning) cam.start();
+  if (wasTraining) trainer.enter();
 };
 
 $('#pack-export').onclick = async () => {
@@ -429,6 +413,7 @@ async function bosesTalk() {
 async function enterRole(role) {
   unlockAudio();
   if (state.role === 'kamay' && role !== 'kamay') cam.stop();
+  trainer.leave();
   state.role = role;
   state.link?.setRole(role);
   $('#role-pill').hidden = false;
@@ -444,6 +429,8 @@ $('#b-btn').onclick = () => bosesTalk();
 for (const b of document.querySelectorAll('.role')) b.onclick = () => enterRole(b.dataset.role);
 $('#home-btn').onclick = () => {
   cam.stop();
+  trainer.leave();
+  document.title = 'Twolay';
   state.role = null;
   $('#role-pill').hidden = true;
   showScreen('home');
@@ -451,7 +438,8 @@ $('#home-btn').onclick = () => {
 document.addEventListener('keydown', (e) => {
   if (e.code !== 'Space' || $('#setup').open || e.target.closest('textarea, input, select')) return;
   e.preventDefault();
-  if (state.role === 'kamay') kamayCapture();
+  if (trainOpen()) trainer.record();
+  else if (state.role === 'kamay') kamayCapture();
   else if (state.role === 'boses') bosesTalk();
 });
 
@@ -595,5 +583,6 @@ $('#offline-cache').onclick = async () => {
   if (params.get('link') === 'demo') useLink(new DemoLink());
   const role = params.get('role');
   if (role === 'kamay' || role === 'boses') await enterRole(role);
+  else if (role === 'train') await enterTrain();
   else showScreen('home');
 })();

@@ -38,6 +38,7 @@ export const store = {
   },
   putClip: (label, blob) => tx('clips', 'readwrite', (s) => s.put({ label, blob, type: blob.type, at: Date.now() })),
   clip: (label) => tx('clips', 'readonly', (s) => s.get(label)),
+  deleteClip: (label) => tx('clips', 'readwrite', (s) => s.delete(label)),
   clips: () => tx('clips', 'readonly', (s) => s.getAll()),
 
   async exportPack() {
