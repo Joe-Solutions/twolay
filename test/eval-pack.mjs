@@ -20,24 +20,30 @@ const report = await page.evaluate(async () => {
   const K = 5;
   let correct = 0, wrong = 0, rejected = 0;
   const confusions = {};
+  const per = {};
   for (let k = 0; k < K; k++) {
     const train = samples.filter((s) => s.id % K !== k);
     const test = samples.filter((s) => s.id % K === k);
     const c = new SignClassifier().fit(train);
     for (const s of test) {
       const r = c.predict(s.frames);
-      if (!r.label) rejected++;
-      else if (r.label === s.label) correct++;
+      const p = (per[s.label] ??= { n: 0, ok: 0, rej: 0 });
+      p.n++;
+      if (!r.label) { rejected++; p.rej++; }
+      else if (r.label === s.label) { correct++; p.ok++; }
       else { wrong++; const key = `${s.label}->${r.label}`; confusions[key] = (confusions[key] || 0) + 1; }
     }
   }
   const n = samples.length;
-  return { n, correct, wrong, rejected, confusions };
+  return { n, correct, wrong, rejected, confusions, per };
 });
 const pct = (x) => `${Math.round((x / report.n) * 100)}%`;
 console.log(`held-out takes: ${report.n}`);
 console.log(`correct:  ${report.correct} (${pct(report.correct)})`);
 console.log(`wrong:    ${report.wrong} (${pct(report.wrong)})`, report.confusions);
 console.log(`"hindi kita" (rejected): ${report.rejected} (${pct(report.rejected)})`);
+for (const [label, p] of Object.entries(report.per)) {
+  console.log(`  ${label.padEnd(20)} ${String(Math.round((p.ok / p.n) * 100)).padStart(3)}% correct, ${p.rej}/${p.n} rejected`);
+}
 await browser.close();
 server.kill();

@@ -1,4 +1,4 @@
-// The 12 demo signs, the team's own added words, and the Filipino / Taglish words that map speech to them.
+// The built-in signs, the team's own added words, and the Filipino / Taglish words that map speech to them.
 
 export const UNKNOWN_TEXT = 'hindi kita';
 
@@ -15,6 +15,12 @@ const BUILTIN = [
   { label: 'sandali',  text: 'Sandali',  en: 'wait' },
   { label: 'tama',     text: 'Tama',     en: 'correct' },
   { label: 'mali',     text: 'Mali',     en: 'wrong' },
+  // Also from FSL-105 (Deaf signers, CC BY 4.0).
+  { label: 'hello',              text: 'Hello',                 en: 'hello' },
+  { label: 'magandang-umaga',    text: 'Magandang umaga',       en: 'good morning' },
+  { label: 'walang-anuman',      text: 'Walang anuman',         en: "you're welcome" },
+  { label: 'naiintindihan',      text: 'Naiintindihan',         en: 'I understand' },
+  { label: 'hindi-maintindihan', text: 'Hindi ko maintindihan', en: "I don't understand" },
 ];
 
 // SIGNS and LABELS are live: added words are appended in place, so importers see them.
@@ -83,7 +89,8 @@ export const signText = (label) => SIGNS.find((s) => s.label === label)?.text ??
 const WORDS = {
   oo: ['oo', 'opo', 'oho', 'o o', 'yes', 'yeah', 'sige', 'okay', 'ok', 'oks'],
   hindi: ['hindi', 'hinde', 'di', 'no', 'ayaw', 'ayoko', 'hinding'],
-  kumusta: ['kumusta', 'kamusta', 'musta', 'kumustaka', 'hello', 'helo', 'hi'],
+  kumusta: ['kumusta', 'kamusta', 'musta', 'kumustaka'],
+  hello: ['hello', 'helo', 'hallo', 'hi', 'hey'],
   tubig: ['tubig', 'water', 'inom', 'uminom', 'iinom', 'inumin', 'uhaw', 'nauuhaw'],
   pagkain: ['pagkain', 'kain', 'kumain', 'kakain', 'gutom', 'nagugutom', 'food', 'eat', 'ulam', 'kanin'],
   tulong: ['tulong', 'tulungan', 'tumulong', 'tutulong', 'help', 'saklolo'],
@@ -93,12 +100,20 @@ const WORDS = {
   sandali: ['sandali', 'saglit', 'teka', 'wait', 'hintay', 'hintayin', 'antay', 'sandaling'],
   tama: ['tama', 'correct', 'right', 'tumpak', 'totoo'],
   mali: ['mali', 'wrong', 'mistake', 'mali-mali'],
+  naiintindihan: ['naiintindihan', 'naintindihan', 'intindi', 'understand', 'understood', 'gets'],
+  'hindi-maintindihan': ['maintindihan'],
 };
 
 // Multi-word phrases checked before single words.
 const PHRASES = [
   ['comfort room', 'banyo'], ['c r', 'banyo'], ['thank you', 'salamat'], ['how are you', 'kumusta'],
   ['wait lang', 'sandali'], ['teka lang', 'sandali'], ['may sakit', 'sakit'], ['not yet', 'hindi'],
+  ['magandang umaga', 'magandang-umaga'], ['good morning', 'magandang-umaga'],
+  ['walang anuman', 'walang-anuman'], ['you re welcome', 'walang-anuman'], ['youre welcome', 'walang-anuman'],
+  ['hindi ko maintindihan', 'hindi-maintindihan'], ['hindi ko naiintindihan', 'hindi-maintindihan'],
+  ['hindi ko naintindihan', 'hindi-maintindihan'], ['di ko maintindihan', 'hindi-maintindihan'],
+  ['di ko gets', 'hindi-maintindihan'], ['hindi ko gets', 'hindi-maintindihan'],
+  ['don t understand', 'hindi-maintindihan'], ['do not understand', 'hindi-maintindihan'],
 ];
 
 const WORD_TO_LABEL = new Map();
@@ -143,15 +158,20 @@ export function textToSigns(text, max = 3) {
   const norm = ` ${normalize(text)} `;
   const hits = [];
   const customPhrases = [...CUSTOM].filter(([phrase]) => phrase.includes(' '));
+  const covered = [];   // [start, end) of matched phrases; their words don't count again
   for (const [phrase, label] of [...customPhrases, ...PHRASES]) {
     const at = norm.indexOf(` ${phrase} `);
-    if (at >= 0) hits.push({ at, label });
+    if (at < 0 || covered.some(([a, b]) => at < b && at + phrase.length + 1 > a)) continue;
+    hits.push({ at, label });
+    covered.push([at, at + phrase.length + 1]);
   }
+  const inPhrase = (at) => covered.some(([a, b]) => at >= a && at < b);
   let pos = 0;
   const words = norm.trim().split(' ');
   const found = words.map((word) => {
     const at = norm.indexOf(` ${word} `, pos);
     pos = at + 1;
+    if (inPhrase(at)) return { at, label: 'phrase' };
     const label = word && wordLabel(word);
     if (label) hits.push({ at, label });
     return { at, label };

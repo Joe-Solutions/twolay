@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pre-render the 12 sign words to app/audio/<label>.wav with a LOCAL TTS engine.
+# Pre-render the built-in sign words to app/audio/<label>.wav with a LOCAL TTS engine.
 # Used by the Boses phone when it has no offline system voice.
 #   Piper:     PIPER_MODEL=/path/voice.onnx bash scripts/make_voice.sh
 #   espeak-ng: bash scripts/make_voice.sh   (Indonesian voice; Tagalog spelling is phonetic)
@@ -9,7 +9,8 @@ OUT="$ROOT/app/audio"
 mkdir -p "$OUT"
 
 WORDS="oo:Oo hindi:Hindi kumusta:Kumusta tubig:Tubig pagkain:Pagkain tulong:Tulong
-sakit:Sakit banyo:Banyo salamat:Salamat sandali:Sandali tama:Tama mali:Mali"
+sakit:Sakit banyo:Banyo salamat:Salamat sandali:Sandali tama:Tama mali:Mali hello:Helo
+magandang-umaga:Magandang_umaga walang-anuman:Walang_anuman naiintindihan:Naiintindihan hindi-maintindihan:Hindi_ko_maintindihan"
 
 if [ -n "${PIPER_MODEL:-}" ] && command -v piper >/dev/null; then
   ENGINE="piper ($PIPER_MODEL)"
@@ -22,7 +23,8 @@ else
 fi
 
 for pair in $WORDS; do
-  say_word "$OUT/${pair%%:*}.wav" "${pair#*:}"
+  text="${pair#*:}"
+  say_word "$OUT/${pair%%:*}.wav" "${text//_/ }"
 done
 echo "$ENGINE" > "$OUT/ENGINE.txt"
-echo "   12 clips via $ENGINE -> app/audio/"
+echo "   $(echo $WORDS | wc -w | tr -d " ") clips via $ENGINE -> app/audio/"

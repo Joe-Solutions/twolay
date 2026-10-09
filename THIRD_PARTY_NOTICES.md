@@ -17,4 +17,4 @@ All files are unmodified upstream releases except two one-line patches in `scrip
 
 | Data | Path | License |
 |---|---|---|
-| FSL-105: The Video Filipino Sign Language Sign Database of Introductory 105 FSL Signs (I. J. L. Tupal, M. K. Cabatuan). Clips for YES, NO, HOW ARE YOU, THANK YOU, CORRECT, WRONG were converted to hand-landmark sequences and one 480p playback clip per sign. https://data.mendeley.com/datasets/48y2y99mb9/2 | `app/packs/fsl105.json`, `app/clips/*.mp4` | CC BY 4.0 |
+| FSL-105: The Video Filipino Sign Language Sign Database of Introductory 105 FSL Signs (I. J. L. Tupal, M. K. Cabatuan). Clips for YES, NO, HOW ARE YOU, THANK YOU, CORRECT, WRONG, HELLO, GOOD MORNING, YOURE WELCOME, UNDERSTAND, DON’T UNDERSTAND were converted to hand-landmark sequences and one 480p playback clip per sign. https://data.mendeley.com/datasets/48y2y99mb9/2 | `app/packs/fsl105.json`, `app/clips/*.mp4` | CC BY 4.0 |
