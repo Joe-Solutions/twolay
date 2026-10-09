@@ -65,7 +65,6 @@ PY
 
 echo "==> ONNX Runtime Web wasm $ORT_VER"
 fetch_pkg onnxruntime-web "$ORT_VER" ort
-cp ort/package/dist/ort-wasm-simd-threaded.asyncify.{mjs,wasm} "$APP/vendor/ort/"
 cp ort/package/dist/ort-wasm-simd-threaded.{mjs,wasm} "$APP/vendor/ort/"
 
 echo "==> Whisper tiny (multilingual, int8) from $WHISPER_REPO"

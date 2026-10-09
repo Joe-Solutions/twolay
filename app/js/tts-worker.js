@@ -22,11 +22,11 @@ env.allowLocalModels = true;
 // Must be a path, not a full URL: transformers 4.3.1 skips local file checks for http(s) URLs.
 env.localModelPath = new URL('models/', base).pathname;
 env.useBrowserCache = false;
-const oldSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent) && !('gpu' in navigator);
-const variant = oldSafari ? '' : '.asyncify';
+// Plain wasm build, not .asyncify (WebGPU/JSPI only): asyncify costs ~700 MB more per model in Safari,
+// enough to crash an iPhone tab with Whisper and Kokoro both loaded.
 env.backends.onnx.wasm.wasmPaths = {
-  mjs: new URL(`vendor/ort/ort-wasm-simd-threaded${variant}.mjs`, base).href,
-  wasm: new URL(`vendor/ort/ort-wasm-simd-threaded${variant}.wasm`, base).href,
+  mjs: new URL('vendor/ort/ort-wasm-simd-threaded.mjs', base).href,
+  wasm: new URL('vendor/ort/ort-wasm-simd-threaded.wasm', base).href,
 };
 env.backends.onnx.wasm.numThreads = 1;
 
