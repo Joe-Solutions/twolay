@@ -10,7 +10,7 @@ import { unlockAudio, voiceInfo } from './voice.js';
 import { initUsap, enterUsap, leaveUsap, usapOpen, talk } from './usap.js';
 import { initGestures, enabled as gesturesOn, setEnabled as setGestures } from './gestures.js';
 import { hapticsOn, setHaptics, buzz } from './haptics.js';
-import { registerSW, offlineStatus, cacheAll } from './offline.js';
+import { registerSW, offlineStatus, cacheAll, checkForUpdate } from './offline.js';
 
 const $ = (s) => document.querySelector(s);
 const params = new URLSearchParams(location.search);
@@ -115,7 +115,9 @@ async function openTrain() {
   await trainer.enter();
 }
 
+let updateReady = false;
 function openHome() {
+  if (updateReady) return location.reload();
   leaveUsap();
   trainer.leave();
   document.title = 'Twolay';
@@ -272,11 +274,31 @@ $('#offline-cache').onclick = async () => {
   }
 };
 
+// A phone that saved the app offline updates itself (changed files only) whenever it starts online.
+async function updateSavedCopy() {
+  try {
+    const n = await checkForUpdate((p, f) => netlog.info(`update ${Math.round(p * 100)}% ${f}`));
+    if (!n) return;
+    netlog.info(`updated ${n} file(s) to the deployed version`);
+    renderOffline();
+    if (!$('#home').hidden && !$('#setup').open) {
+      toast('May bagong bersyon: nire-reload…');
+      setTimeout(() => location.reload(), 800);
+    } else {
+      updateReady = true;
+      toast('May bagong bersyon: bumalik sa Home para gamitin', 5000);
+    }
+  } catch (err) {
+    netlog.info(`update check failed: ${err.message}`);
+  }
+}
+
 // ---------- boot ----------
 (async function boot() {
   netlog.info(`app start at ${location.origin} (secure context: ${window.isSecureContext})`);
   await registerSW();
   renderOffline();
+  updateSavedCopy();
   const screen = params.get('screen') ?? params.get('role');
   if (screen === 'usap') await openUsap();
   else if (screen === 'train') await openTrain();
