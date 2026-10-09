@@ -1,4 +1,4 @@
-// Silero VAD on the Boses side:
+// Silero VAD on the speech side:
 //   1. loud pink noise (no speech) -> "Walang narinig", nothing sent, Whisper never runs
 //      (a loudness check can mistake it for speech, and Whisper then invents words);
 //   2. "Ano ang sakit?" -> speech detected by Silero, leading silence trimmed, transcript sent.
@@ -21,7 +21,7 @@ const check = (ok, msg) => {
   if (!ok) failed = true;
 };
 
-async function bosesWith(wav) {
+async function usapWith(wav) {
   const browser = await chromium.launch({
     args: [
       '--use-fake-ui-for-media-stream',
@@ -30,7 +30,7 @@ async function bosesWith(wav) {
       '--autoplay-policy=no-user-gesture-required',
     ],
   });
-  const ctx = await browser.newContext({ permissions: ['microphone'], serviceWorkers: 'block' });
+  const ctx = await browser.newContext({ permissions: ['camera', 'microphone'], serviceWorkers: 'block' });
   await ctx.route('**/*', (route) => {
     const u = route.request().url();
     if (u.startsWith(ORIGIN) || u.startsWith('blob:') || u.startsWith('data:')) return route.continue();
@@ -39,29 +39,29 @@ async function bosesWith(wav) {
   });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => console.log(`  [pageerror] ${e.message}`));
-  await page.goto(`${ORIGIN}/?role=boses`);
-  await page.waitForFunction(() => document.querySelector('#b-btn').textContent === 'Boses', null, { timeout: 120000 });
+  await page.goto(`${ORIGIN}/?screen=usap`);
+  await page.waitForFunction(() => document.querySelector('#u-mic').textContent === 'Magsalita', null, { timeout: 120000 });
   await page.waitForFunction(async () => (await import('./js/stt.js')).vadActive(), null, { timeout: 30000, polling: 250 });
   return { browser, page };
 }
 
 console.log('== loud noise, nobody talking');
 {
-  const { browser, page } = await bosesWith('noise48.wav');
+  const { browser, page } = await usapWith('noise48.wav');
   check(true, 'Silero VAD loaded');
   const t0 = Date.now();
-  await page.click('#b-btn');
-  await page.waitForFunction(() => document.querySelector('#b-btn').textContent === 'Boses' && !document.querySelector('#b-btn').classList.contains('live'), null, { timeout: 20000 });
-  const caption = await page.textContent('#b-caption');
+  await page.click('#u-mic');
+  await page.waitForFunction(() => document.querySelector('#u-mic').textContent === 'Magsalita' && !document.querySelector('#u-mic').classList.contains('live'), null, { timeout: 20000 });
+  const caption = await page.textContent('#u-caption');
   console.log(`  caption after ${((Date.now() - t0) / 1000).toFixed(1)} s: ${caption}`);
   check(/Walang narinig/.test(caption), 'noise is not treated as speech');
-  check((await page.$$('#b-history li')).length === 0, 'nothing transcribed or sent');
+  check((await page.$$('#u-history li.from-boses')).length === 0, 'nothing transcribed or sent');
   await browser.close();
 }
 
 console.log('\n== "Ano ang sakit?" after 1.5 s of silence');
 {
-  const { browser, page } = await bosesWith('ano48.wav');
+  const { browser, page } = await usapWith('ano48.wav');
   const r = await page.evaluate(async () => {
     const { recordUtterance } = await import('./js/stt.js');
     const t0 = performance.now();
@@ -71,9 +71,9 @@ console.log('\n== "Ano ang sakit?" after 1.5 s of silence');
   console.log(`  ${JSON.stringify(r)}`);
   check(r.heard && r.vad === 'silero', 'Silero detected the speech');
   check(r.secs < 4.5, `audio trimmed to the speech (${r.secs.toFixed(2)} s kept)`);
-  await page.click('#b-btn');
-  await page.waitForFunction(() => document.querySelectorAll('#b-history li.from-boses').length > 0, null, { timeout: 60000 }).catch(() => {});
-  const text = await page.$$eval('#b-history li', (l) => l.map((x) => x.textContent).join(' | '));
+  await page.click('#u-mic');
+  await page.waitForFunction(() => document.querySelectorAll('#u-history li.from-boses').length > 0, null, { timeout: 60000 }).catch(() => {});
+  const text = await page.$$eval('#u-history li', (l) => l.map((x) => x.textContent).join(' | '));
   console.log(`  history: ${text}`);
   check(/sakit/i.test(text), 'transcript reaches the sign map (sakit)');
   await browser.close();

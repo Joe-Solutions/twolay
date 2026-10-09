@@ -1,4 +1,4 @@
-// Front camera + live hand tracking + one-sign segmentation.
+// Camera (front or rear) + live hand tracking + one-sign segmentation.
 import { loadHands, detect, frameFeature, drawHands } from './hands.js';
 
 const WAIT_FOR_HANDS_MS = 5000;
@@ -6,7 +6,9 @@ const MAX_SIGN_MS = 3500;
 const HANDS_GONE_MS = 450;
 
 export class SignCam {
-  constructor(video, canvas) {
+  /** facing: 'user' (selfie, shown mirrored) or 'environment' (rear, pointed at the signer). */
+  constructor(video, canvas, { facing = 'user' } = {}) {
+    this.facing = facing;
     this.video = video;
     this.canvas = canvas;
     this.ctx = canvas.getContext('2d');
@@ -21,15 +23,26 @@ export class SignCam {
     if (this.running) return;
     await loadHands();
     this.stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+      video: { facingMode: { ideal: this.facing }, width: { ideal: 640 }, height: { ideal: 480 } },
       audio: false,
     });
+    // A laptop has only one camera whatever we ask for; mirror only what is really a selfie view.
+    const actual = this.stream.getVideoTracks()[0]?.getSettings?.().facingMode;
+    this.mirrored = (actual || this.facing) !== 'environment';
+    this.video.style.transform = this.mirrored ? 'scaleX(-1)' : 'none';
     this.video.srcObject = this.stream;
     await this.video.play();
     this.canvas.width = this.video.videoWidth;
     this.canvas.height = this.video.videoHeight;
     this.running = true;
     this.#loop();
+  }
+
+  async setFacing(facing) {
+    this.facing = facing;
+    if (!this.running) return;
+    this.stop();
+    await this.start();
   }
 
   stop() {
@@ -44,7 +57,7 @@ export class SignCam {
     if (this.video.readyState >= 2 && this.video.currentTime !== this.lastVideoTime) {
       this.lastVideoTime = this.video.currentTime;
       const result = detect(this.video);
-      drawHands(this.ctx, result, true);
+      drawHands(this.ctx, result, this.mirrored);
       const frame = frameFeature(result);
       frame.at = performance.now();
       this.capture?.push(frame);

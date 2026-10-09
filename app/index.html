@@ -14,8 +14,6 @@
 <body>
   <header class="bar">
     <button id="home-btn" class="brand" aria-label="Twolay, bumalik sa simula">Twolay</button>
-    <span id="role-pill" class="pill" hidden></span>
-    <button id="link-pill" class="pill link-idle" aria-label="Status ng link">Walang link</button>
     <span id="offline-pill" class="pill">Offline: ?</span>
     <button id="setup-btn" class="icon" aria-label="Setup">⚙</button>
   </header>
@@ -23,40 +21,44 @@
   <main>
     <section id="home" class="screen">
       <h1>Twolay</h1>
-      <p class="sub">Sign ↔ Boses, sa loob lang ng dalawang phone.</p>
-      <div class="roles">
-        <button class="role" data-role="kamay">
-          <span class="big-word">Kamay</span>
-          <span>Ako ay nagsa-sign (Bingi)</span>
-        </button>
-        <button class="role" data-role="boses">
-          <span class="big-word">Boses</span>
-          <span>Ako ay nagsasalita (Bulag)</span>
-        </button>
-      </div>
+      <p class="sub">Sign ↔ Boses, sa iisang phone, walang internet.</p>
+      <button id="start-btn" class="start-entry">
+        <span class="big-word">Simulan</span>
+        <span>Itutok ang camera sa nagsa-sign: babasahin nang malakas ang bawat sign. Pindutin para magsalita pabalik.</span>
+      </button>
       <button id="train-btn" class="train-entry">
         <span class="big-word">Turuan</span>
         <span>Train FSL: ituro ang mga sign gamit ang camera</span>
       </button>
-      <button id="demo-btn" class="secondary">Demo mode: dalawang window sa isang laptop</button>
     </section>
 
-    <section id="screen-kamay" class="screen" hidden>
-      <div id="k-caption" class="caption" aria-live="polite">Hintayin ang sagot…</div>
+    <section id="screen-usap" class="screen" hidden>
+      <div id="u-caption" class="caption" aria-live="assertive">Hinihintay ang sign…</div>
       <div class="stage">
-        <figure class="clipbox">
-          <video id="k-clip" muted playsinline preload="auto"></video>
-          <div id="k-card" class="word-card" hidden></div>
-          <figcaption id="k-clip-label">Sign clip</figcaption>
+        <figure id="u-clipbox" class="clipbox">
+          <video id="u-clip" muted playsinline preload="auto"></video>
+          <div id="u-card" class="word-card" hidden></div>
+          <figcaption id="u-clip-label">Sign para sa sinabi</figcaption>
         </figure>
         <figure class="cambox">
-          <video id="k-cam" muted playsinline autoplay></video>
-          <canvas id="k-overlay"></canvas>
-          <figcaption id="k-status">Camera…</figcaption>
+          <video id="u-cam" muted playsinline autoplay></video>
+          <canvas id="u-overlay"></canvas>
+          <figcaption id="u-status" aria-live="polite">Camera…</figcaption>
         </figure>
       </div>
-      <button id="k-btn" class="big-btn">Kamay</button>
-      <ol id="k-history" class="history" aria-label="Kasaysayan ng usapan"></ol>
+      <div class="row u-tools">
+        <button id="u-flip" class="secondary" aria-label="Palitan ang camera (harap o likod)">↺ Camera</button>
+        <label class="lang-pick">Wika
+          <select id="u-lang" aria-label="Wika / Language">
+            <option value="fil">Filipino</option>
+            <option value="en">English</option>
+          </select>
+        </label>
+      </div>
+      <button id="u-mic" class="big-btn giant busy" aria-describedby="u-hint">Naglo-load…</button>
+      <p id="u-hint" class="hint"></p>
+      <div class="meter" aria-hidden="true"><span id="u-level"></span></div>
+      <ol id="u-history" class="history" aria-label="Kasaysayan ng usapan"></ol>
     </section>
 
     <section id="screen-train" class="screen" hidden>
@@ -94,30 +96,12 @@
       </form>
     </section>
 
-    <section id="screen-boses" class="screen" hidden>
-      <div id="b-caption" class="caption" aria-live="assertive">Hintayin ang sign…</div>
-      <figure id="b-clipbox" class="clipbox audience-clip" hidden>
-        <video id="b-clip" muted playsinline preload="auto"></video>
-        <div id="b-card" class="word-card" hidden></div>
-        <figcaption id="b-clip-label">Sign mula sa Kamay</figcaption>
-      </figure>
-      <label class="lang-pick">Wika / Language
-        <select id="b-lang">
-          <option value="fil">Filipino</option>
-          <option value="en">English (isasalin / translated)</option>
-        </select>
-      </label>
-      <button id="b-btn" class="big-btn giant" aria-describedby="b-hint">Boses</button>
-      <p id="b-hint" class="hint">Pindutin, magsalita, at huminto. Kusa itong titigil.</p>
-      <div class="meter" aria-hidden="true"><span id="b-level"></span></div>
-      <ol id="b-history" class="history" aria-label="Kasaysayan ng usapan"></ol>
-    </section>
   </main>
 
   <dialog id="setup">
     <form method="dialog" class="setup-head">
       <nav class="tabs" role="tablist">
-        <button type="button" data-tab="link" class="on">Link</button>
+        <button type="button" data-tab="settings" class="on">Wika</button>
         <button type="button" data-tab="train">Turuan</button>
         <button type="button" data-tab="net">Network log</button>
         <button type="button" data-tab="models">Models</button>
@@ -126,38 +110,15 @@
       <button class="icon" aria-label="Isara">✕</button>
     </form>
 
-    <div class="tab" data-tab="link">
-      <p>Status: <strong id="link-status">walang link</strong></p>
-      <h3>Isang laptop (demo)</h3>
-      <div class="row">
-        <button id="use-demo">Gamitin ang demo link</button>
-        <button id="open-other" class="secondary">Buksan ang kabilang window</button>
-      </div>
-      <h3>Dalawang phone (hotspot / Bluetooth tethering)</h3>
-      <ol class="steps">
-        <li>Phone A: <button id="p2p-offer">Gumawa ng pairing code</button></li>
-        <li>Phone B: <button id="p2p-scan-offer">I-scan ang code ni A</button> — ipakita ang sagot na QR.</li>
-        <li>Phone A: <button id="p2p-scan-answer">I-scan ang sagot ni B</button></li>
-      </ol>
-      <div id="qr-out" class="qr"></div>
-      <div id="scan-box" class="scan" hidden>
-        <video id="scan-video" muted playsinline></video>
-        <button id="scan-cancel" class="secondary">Kanselahin</button>
-      </div>
-      <details>
-        <summary>Walang camera? I-paste ang code</summary>
-        <textarea id="code-in" rows="3" placeholder="T1…"></textarea>
-        <button id="code-apply">Gamitin ang code</button>
-        <textarea id="code-out" rows="3" readonly></textarea>
-      </details>
-      <div class="row"><button id="ping" class="secondary">Subukan ang link</button></div>
-      <label class="lang-pick">Wika ng boses sa phone na ito
+    <div class="tab" data-tab="settings">
+      <label class="lang-pick">Wika ng boses
         <select id="lang">
           <option value="fil">Filipino</option>
           <option value="en">English: isasalin offline papunta at mula sa Filipino</option>
         </select>
       </label>
-      <label class="check"><input id="audience-mode" type="checkbox"> Audience mode (para sa demo): ipakita rin ang sign clip sa Boses; sa Kamay, sabihin nang malakas ang na-sign mo at ang transcript</label>
+      <p class="muted">Filipino: binabasa ang mga sign sa Filipino at isinusulat ang Filipino na sinabi. English: binabasa ang mga sign sa English, at ang English na sinabi ay isinasalin sa Filipino para sa nagsa-sign.</p>
+      <p class="muted">Camera: ang ↺ Camera sa screen ng usapan ay nagpapalit sa harap o likod. Likod ang default: hawak ng nagsasalita ang phone at nakatutok sa nagsa-sign.</p>
     </div>
 
     <div class="tab" data-tab="train" hidden>
@@ -175,12 +136,11 @@
         <button id="train-clear" class="danger">Burahin lahat</button>
       </div>
       <label class="check"><input id="use-starter" type="checkbox"> Gamitin ang FSL-105 starter: oo, hindi, kumusta, salamat, tama, mali, hello, magandang umaga, walang anuman, naiintindihan, hindi ko maintindihan, mula sa mga Deaf FSL signer (CC BY 4.0)</label>
-      <label class="check"><input id="auto-mode" type="checkbox"> Auto: kusang makita ang sign (hindi na kailangang pindutin)</label>
     </div>
 
     <div class="tab" data-tab="net" hidden>
-      <p class="net-summary">Requests palabas ng dalawang device: <strong id="net-external">0</strong></p>
-      <p class="muted">Lahat ng load ng file, bawat mensahe sa link, at anumang na-block na request ay nakalista dito.</p>
+      <p class="net-summary">Requests palabas ng device: <strong id="net-external">0</strong></p>
+      <p class="muted">Lahat ng load ng file at anumang na-block na request ay nakalista dito.</p>
       <div class="row"><button id="net-copy" class="secondary">Kopyahin ang log</button></div>
       <ol id="net-list" class="netlog"></ol>
     </div>
@@ -200,7 +160,7 @@
           <tr><td>Sign clips</td><td>Pre-recorded ng team</td><td>Sa phone (IndexedDB / app/clips)</td></tr>
         </tbody>
       </table>
-      <p class="muted">Walang cloud model, walang API key, walang upload. Remote model download ay naka-disable at naka-block ng Content-Security-Policy.</p>
+      <p class="muted">Isang phone lang, walang network sa pagitan ng dalawang tao. Walang cloud model, walang API key, walang upload. Remote model download ay naka-disable at naka-block ng Content-Security-Policy.</p>
     </div>
 
     <div class="tab" data-tab="offline" hidden>

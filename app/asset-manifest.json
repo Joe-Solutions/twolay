@@ -1,5 +1,5 @@
 {
- "version": "d6637caeff7d",
+ "version": "10d2118634f1",
  "files": [
   "./",
   "./audio/ENGINE.txt",
@@ -39,12 +39,10 @@
   "./js/en-g2p.js",
   "./js/hands.js",
   "./js/kokoro.js",
-  "./js/link.js",
   "./js/main.js",
   "./js/mt-worker.js",
   "./js/netlog.js",
   "./js/offline.js",
-  "./js/qrpair.js",
   "./js/rec-worklet.js",
   "./js/signs.js",
   "./js/store.js",
@@ -53,6 +51,7 @@
   "./js/trainer.js",
   "./js/translate.js",
   "./js/tts-worker.js",
+  "./js/usap.js",
   "./js/vad-worker.js",
   "./js/voice.js",
   "./js/whisper-worker.js",
@@ -102,8 +101,6 @@
   "./vendor/ort/ort-wasm-simd-threaded.asyncify.wasm",
   "./vendor/ort/ort-wasm-simd-threaded.mjs",
   "./vendor/ort/ort-wasm-simd-threaded.wasm",
-  "./vendor/qr/jsQR.js",
-  "./vendor/qr/qrcode.mjs",
   "./vendor/transformers/transformers.js"
  ]
 }
