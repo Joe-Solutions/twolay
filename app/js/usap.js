@@ -35,7 +35,9 @@ export function initUsap(d) {
   $('#u-flip').onclick = () => flipCamera();
   $('#u-clipbox').addEventListener('click', () => {
     const v = $('#u-clip');
-    if (v.src) { v.currentTime = 0; v.play(); }
+    if (!v.src) return;
+    v.currentTime = 0;
+    v.play().then(() => { $('#u-card').hidden = true; }).catch(() => {});
   });
   for (const id of ['#lang', '#u-lang']) {
     $(id).onchange = (e) => setLang(e.target.value);
@@ -305,13 +307,23 @@ async function playSigns(labels) {
     caption.textContent = signText(label).toUpperCase();
     card.textContent = signText(label).toUpperCase();
     if (!url) {
+      netlog.info(`no clip for sign ${label} (record one in Turuan, or bring back the FSL-105 example)`);
       card.hidden = false;
       await new Promise((r) => setTimeout(r, 1500));
       continue;
     }
     card.hidden = true;
     video.src = url;
-    await video.play().catch(() => {});
+    const played = await video.play().then(() => true, (err) => {
+      netlog.info(`sign clip ${label} did not play: ${err.name} ${err.message}`);
+      return false;
+    });
+    if (!played) {
+      // iPhone refuses autoplay in Low Power Mode: show the word, a tap on it plays the clip.
+      card.hidden = false;
+      caption.textContent = 'I-tap para makita ang sign';
+      return;
+    }
     await new Promise((r) => { video.onended = r; video.onerror = r; setTimeout(r, 6000); });
   }
 }

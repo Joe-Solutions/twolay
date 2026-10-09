@@ -1,5 +1,5 @@
 {
- "version": "a1ec9ae4fbad",
+ "version": "668607936e76",
  "files": [
   "./",
   "./audio/ENGINE.txt",
@@ -163,7 +163,7 @@
   "./js/tl-g2p.js": "cfd23df950388802",
   "./js/trainer.js": "e30c5e9138885288",
   "./js/translate.js": "32f306445489d305",
-  "./js/usap.js": "55734ef98072f19d",
+  "./js/usap.js": "ea67bfa19f961847",
   "./js/voice.js": "c1d8f03d48a9ffe7",
   "./manifest.webmanifest": "668b2ae03c67c02d",
   "./models/Helsinki-NLP/opus-mt-en-tl/config.json": "3f42bec03e00b673",
