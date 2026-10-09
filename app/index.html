@@ -97,6 +97,8 @@
     </section>
 
   </main>
+  <div id="gesture-pad" hidden aria-hidden="true"></div>
+  <div id="g-focus" hidden aria-live="polite"></div>
 
   <dialog id="setup">
     <form method="dialog" class="setup-head">
@@ -118,6 +120,9 @@
         </select>
       </label>
       <p class="muted">Filipino: binabasa ang mga sign sa Filipino at isinusulat ang Filipino na sinabi. English: binabasa ang mga sign sa English, at ang English na sinabi ay isinasalin sa Filipino para sa nagsa-sign.</p>
+      <label class="check"><input type="checkbox" id="gestures-on"> Gestures para sa bulag: mag-swipe pakanan/pakaliwa para pumili, mag-double tap kahit saan para pindutin, pataas para ulitin ang huling mensahe, pababa para sa mas luma</label>
+      <label class="check"><input type="checkbox" id="haptics-on"> Vibrate (haptic feedback)</label>
+      <p class="muted">Kung naka-on ang VoiceOver o TalkBack, patayin ang Gestures at gamitin ang sa phone.</p>
       <p class="muted">Camera: ang ↺ Camera sa screen ng usapan ay nagpapalit sa harap o likod. Likod ang default: hawak ng nagsasalita ang phone at nakatutok sa nagsa-sign.</p>
     </div>
 

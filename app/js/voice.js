@@ -5,6 +5,7 @@
 //   4. any other on-device system voice
 import { LABELS } from './signs.js';
 import { kokoroReady, synthesize } from './kokoro.js';
+import { buzz } from './haptics.js';
 
 const audioBase = new URL('../audio/', import.meta.url);
 let voices = [];
@@ -29,10 +30,10 @@ export function voiceInfo() {
 }
 
 let kokoroSource;
-async function playKokoro(text, opts) {
-  if (!kokoroReady()) return false;
+async function playKokoro(text, opts, pre) {
+  if (!pre && !kokoroReady()) return false;
   try {
-    const { audio, rate } = await synthesize(text, opts);
+    const { audio, rate } = pre ?? (await synthesize(text, opts));
     actx ??= new (window.AudioContext || window.webkitAudioContext)();
     await actx.resume();
     const buf = actx.createBuffer(1, audio.length, rate);
@@ -98,6 +99,51 @@ export async function speak(text, label) {
   return lastEngine;
 }
 
+// ---------- navigation prompts ----------
+// Short, interruptible: a new prompt or stopSpeech() cuts the current one off. The fastest voice wins
+// (a cached Kokoro clip, then an on-device system voice), since these answer every swipe.
+const promptCache = new Map();
+let promptToken = 0;
+
+export function stopSpeech() {
+  promptToken++;
+  kokoroSource?.stop();
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+}
+
+async function cachedPrompt(text, lang) {
+  const key = `${lang}:${text}`;
+  if (!promptCache.has(key)) {
+    const opts = lang === 'en' ? { lang: 'en' } : undefined;
+    promptCache.set(key, synthesize(text, opts).catch(() => promptCache.delete(key)));
+  }
+  return promptCache.get(key);
+}
+
+/** Speak a navigation prompt in 'fil' or 'en'. */
+export async function say(text, lang = 'fil') {
+  stopSpeech();
+  const token = promptToken;
+  const key = `${lang}:${text}`;
+  const ready = promptCache.has(key) && (await Promise.race([promptCache.get(key), null]));
+  if (ready?.audio) return playKokoro(text, null, ready);
+  const sys = lang === 'en' ? englishVoice() : filipinoVoice();
+  if (sys) return speakSystem(text, sys);
+  if (!kokoroReady()) return speakSystem(text, voices[0]);
+  const pre = await cachedPrompt(text, lang);
+  if (token !== promptToken || !pre?.audio) return false;
+  return playKokoro(text, null, pre);
+}
+
+/** Render prompts in the background once Kokoro is loaded, so swipes answer instantly. */
+export async function prewarm(texts, lang = 'fil') {
+  if (lang === 'en' ? englishVoice() : filipinoVoice()) return;
+  for (const t of texts) {
+    if (!kokoroReady()) return;
+    await cachedPrompt(t, lang);
+  }
+}
+
 // Short tones so a blind user knows what the app is doing without looking.
 let actx;
 export function earcon(kind) {
@@ -109,6 +155,7 @@ export function earcon(kind) {
     recv: [[784, 0.07], [523, 0.1]],
     error: [[220, 0.25]],
   }[kind] ?? [];
+  buzz(kind);
   let t = actx.currentTime;
   for (const [f, d] of seq) {
     const o = actx.createOscillator();
