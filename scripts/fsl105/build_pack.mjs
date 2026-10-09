@@ -25,9 +25,22 @@ await page.route(`${ORIGIN}/__fsl/**`, (route) => {
 await page.goto(`${ORIGIN}/`);
 
 const files = readdirSync(path.join(WORK, 'webm')).filter((f) => f.endsWith('.webm')).sort();
+// Reuse samples already in the pack (same source clip); FRESH=1 re-extracts everything.
+const packFile = path.join(root, 'app/packs/fsl105.json');
+const previous = new Map();
+if (!process.env.FRESH) {
+  try {
+    for (const s of JSON.parse(readFileSync(packFile, 'utf8')).samples) previous.set(s.source, s);
+  } catch {}
+}
 const samples = [];
 for (const [i, f] of files.entries()) {
   const label = f.split('_')[0];
+  const reused = previous.get(`FSL-105 ${f}`);
+  if (reused) {
+    samples.push(reused);
+    continue;
+  }
   const t0 = Date.now();
   const frames = await Promise.race([
     page.evaluate(async (name) => {

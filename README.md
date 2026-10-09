@@ -4,7 +4,7 @@
 
 ```
 Person 1 (Deaf)                                     Person 2 (Blind)
-signs "tulong" ─▶ MediaPipe Hands ─▶ 12-sign kNN ─▶ {"label":"tulong"} ─▶ local voice says "Tulong"
+signs "tulong" ─▶ MediaPipe Hands ─▶ sign kNN ─▶ {"label":"tulong"} ─▶ local voice says "Tulong"
 sees "Ano ang sakit?" + sakit clip ◀─ {"text":..,"signs":["sakit"]} ◀─ Whisper tiny ◀─ says "Ano ang sakit?"
 ```
 
@@ -20,11 +20,11 @@ sees "Ano ang sakit?" + sakit clip ◀─ {"text":..,"signs":["sakit"]} ◀─ W
 | Job | Model / engine | Size | Runs |
 |---|---|---|---|
 | Hand tracking | MediaPipe Hand Landmarker `hand_landmarker.task` (float16) + MediaPipe Tasks Vision 1.1.0 wasm (SIMD and no-SIMD builds) | 7.8 MB + 25 MB | phone, wasm (GPU→CPU fallback) |
-| Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Ships pre-trained on 6 signs from the FSL-105 dataset (Deaf signers, CC BY 4.0); the team adds the rest in-app. | 1.5 MB pack + IndexedDB | phone, JS |
+| Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Ships pre-trained on 11 signs from the FSL-105 dataset (Deaf signers, CC BY 4.0); the team adds the rest in-app. | 3 MB pack + IndexedDB | phone, JS |
 | Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog | 43 MB + 39 MB runtime | phone, Web Worker |
 | Text → sign | Keyword table for Filipino + Taglish, one-typo tolerant (`app/js/signs.js`) | — | phone |
-| Text → voice | On-device system voice for Filipino if the phone has one (`speechSynthesis`, `localService` voices only), otherwise 12 clips pre-rendered with **espeak-ng** (Indonesian voice; Tagalog spelling is phonetic) in `app/audio/` | 0.5 MB | phone |
-| Sign playback | FSL-105 clips for the 6 starter signs (`app/clips/`), plus clips the team records | 0.3 MB | phone |
+| Text → voice | On-device system voice for Filipino if the phone has one (`speechSynthesis`, `localService` voices only), otherwise 17 clips pre-rendered with **espeak-ng** (Indonesian voice; Tagalog spelling is phonetic) in `app/audio/` | 0.5 MB | phone |
+| Sign playback | FSL-105 clips for the 11 starter signs (`app/clips/`), plus clips the team records | 0.5 MB | phone |
 
 Not used anywhere: cloud STT/TTS, sign-language APIs, generated avatars, API keys, uploads.
 
@@ -57,9 +57,9 @@ npm run setup            # MediaPipe, Whisper tiny, ONNX Runtime, QR libs -> app
 
 After you change any file in `app/`, run `npm run manifest` so installed phones pick up the new version.
 
-## Train the 12 signs
+## Train the signs
 
-### Starter pack: 6 signs work out of the box
+### Starter pack: 11 signs work out of the box
 
 `app/packs/fsl105.json` is pre-trained from **FSL-105**, a dataset of introductory Filipino Sign Language
 signs performed by adult Deaf FSL signers and reviewed by an FSL expert (CC BY 4.0). It covers:
@@ -72,8 +72,15 @@ signs performed by adult Deaf FSL signers and reviewed by an FSL expert (CC BY 4
 | salamat | THANK YOU | 20 |
 | tama | CORRECT | 22 |
 | mali | WRONG | 21 |
+| hello | HELLO | 20 |
+| magandang umaga | GOOD MORNING | 20 |
+| walang anuman | YOURE WELCOME | 20 |
+| naiintindihan | UNDERSTAND | 20 |
+| hindi ko maintindihan | DON’T UNDERSTAND | 21 |
 
-5-fold cross-validation on held-out takes (`npm run eval:pack`): **94% correct, 0% wrong, 6% "hindi kita"**.
+5-fold cross-validation on held-out takes (`npm run eval:pack`): **87% correct, under 1% wrong, 13% "hindi kita"**.
+Per sign: 73% (tama) to 100% (salamat). GOOD AFTERNOON and GOOD EVENING were tried and left out: they share the
+"good" movement and were confused with each other (29% / 41% correct).
 The same signers appear in training and test folds, so expect lower accuracy on a new person.
 
 Each of these also has a playback clip of a Deaf signer in `app/clips/`. The pack can be turned off in
@@ -84,7 +91,8 @@ takes per sign for the best accuracy.
 
 ### The other 6 signs need a signer
 
-FSL-105 has no **tubig, pagkain, tulong, sakit, banyo, sandali**, and the demo script uses *tulong* and *sakit*.
+FSL-105 has no **tubig, pagkain, tulong, sakit, banyo, sandali** (nor goodbye, ako, ikaw), and the demo script uses
+*tulong* and *sakit*. No other openly licensed FSL word-video dataset was found for them.
 Record these from someone who knows FSL, ideally a Deaf signer. Do not make up gestures: judges and Deaf users
 will see them as FSL. Places to learn or confirm them: the University of the Philippines OSDS *Basic Filipino
 Sign Language* video series, the FSL Buddy app (De La Salle-College of Saint Benilde), and TulaySenyas
@@ -96,7 +104,7 @@ All training data stays on the device (IndexedDB). Two ways to train; both feed 
 
 1. **Record live, Turuan screen:** on the home screen tap **Turuan** (Train FSL), or ⚙ → Turuan →
    *Buksan ang Turuan*. Or open `http://localhost:8000/?role=train` directly.
-   - The chips at the bottom list all 12 signs with your takes (`n/5`) and any FSL-105 samples. Green ✓ = enough.
+   - The chips at the bottom list all 17 signs with your takes (`n/5`) and any FSL-105 samples. Green ✓ = enough.
    - Left: an example of the sign (FSL-105 clip, or your own first take). Right: your camera with the hand skeleton.
    - Tap **I-record** (or Space). After the 3-2-1 beeps, sign once, then drop your hands. That's one take.
    - If a take looks like a different sign, the status line warns you ("kahawig ito ng …").
@@ -143,6 +151,9 @@ only contains the app and models; no user audio, video or text is ever sent.
 the sign for the Blind user, Kamay *shows* the text and sign clip for the Deaf user. For judges watching both
 screens, audience mode also plays the sign clip on Boses, and on Kamay says the recognised sign and reads the
 incoming transcript aloud. It is per device.
+
+Kamay also says the sign itself whenever no Boses device received it (no link, or the other side isn't Boses),
+so a signer alone with a laptop or phone still gets a voice.
 
 ### A. Single laptop (required fallback)
 
@@ -201,7 +212,7 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
 
 ## Limits (honest)
 
-- 12 signs only, trained by the team. Accuracy depends on the training takes. Record in the same light and at the
+- 17 built-in signs plus the team's own words. Accuracy depends on the training takes. Record in the same light and at the
   same distance you will demo in, and use 5+ takes per sign.
 - Whisper **tiny** is weak at Tagalog. The keyword table absorbs common misspellings ("Anong ang sakit" still maps
   to *sakit*), but long sentences will be rough. Short, clear phrases work best. For better accuracy, swap in
@@ -217,7 +228,7 @@ app/                    the whole app (static, no build step)
   index.html            CSP locks network to this origin
   js/main.js            screens, roles, setup dialog
   js/hands.js           MediaPipe wrapper + landmark features
-  js/classifier.js      12-sign kNN with "hindi kita" rejection
+  js/classifier.js      sign kNN with "hindi kita" rejection
   js/camera.js          camera + one-sign segmentation
   js/stt.js             mic + VAD -> whisper-worker.js
   js/signs.js           labels + Filipino/Taglish phrase map

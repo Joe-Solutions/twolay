@@ -194,7 +194,8 @@ async function kamayCapture() {
   const text = signText(res.label);
   const sent = send({ t: 'sign', label: res.label, text, conf: +res.confidence.toFixed(2) });
   setCaption(text, 'Ikaw:');
-  if (state.audience) speak(text, res.label);
+  // A connected Boses device voices the sign; otherwise this device must, or nobody hears it.
+  if (state.audience || !(sent && state.link?.peerRole === 'boses')) speak(text, res.label);
   $('#k-status').textContent = `${text} — ${Math.round(res.confidence * 100)}% ${sent ? '→ naipadala' : '(walang link, dito lang)'}`;
   addHistory({ from: 'kamay', text, note: sent ? '' : 'hindi naipadala — walang link', local: !sent });
 }

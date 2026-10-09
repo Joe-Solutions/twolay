@@ -15,7 +15,10 @@ mkdir -p "$WORK" && cd "$WORK"
 python3 - <<'PY'
 import csv, subprocess, zipfile, os, pathlib
 MAP = {"YES": "oo", "NO": "hindi", "HOW ARE YOU": "kumusta",
-       "THANK YOU": "salamat", "CORRECT": "tama", "WRONG": "mali"}
+       "THANK YOU": "salamat", "CORRECT": "tama", "WRONG": "mali",
+       "HELLO": "hello", "GOOD MORNING": "magandang-umaga",
+       "YOURE WELCOME": "walang-anuman",
+       "UNDERSTAND": "naiintindihan", "DON’T UNDERSTAND": "hindi-maintindihan"}
 rows = [r for f in ("train.csv", "test.csv") for r in csv.DictReader(open(f, encoding="utf-8-sig"))]
 z = zipfile.ZipFile("clips.zip")
 names = {n.replace("\\", "/").lower(): n for n in z.namelist()}
