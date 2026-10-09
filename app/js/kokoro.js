@@ -55,9 +55,12 @@ export function loadKokoro() {
 
 export const kokoroReady = () => isReady;
 
-/** Synthesize text; resolves to {audio: Float32Array, rate}. */
-export function synthesize(text) {
-  const key = text.trim().toLowerCase();
+/**
+ * Synthesize text; resolves to {audio: Float32Array, rate}.
+ * lang 'en' uses the English voice; strict rejects English words missing from the lexicon.
+ */
+export function synthesize(text, { lang = 'fil', strict = false } = {}) {
+  const key = `${lang}|${text.trim().toLowerCase()}`;
   if (cache.has(key)) return Promise.resolve(cache.get(key));
   const id = nextId++;
   return new Promise((res, rej) => {
@@ -69,6 +72,6 @@ export function synthesize(text) {
       res(out);
     });
     getWorker();
-    booted.then(() => worker.postMessage({ type: 'say', id, text }));
+    booted.then(() => worker.postMessage({ type: 'say', id, text, lang, strict }));
   });
 }

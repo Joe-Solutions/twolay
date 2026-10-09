@@ -18,20 +18,21 @@ if ('speechSynthesis' in window) {
 }
 
 const filipinoVoice = () => voices.find((v) => /^(fil|tl)\b/i.test(v.lang) || /filipino|tagalog/i.test(v.name));
+const englishVoice = () => voices.find((v) => /^en\b/i.test(v.lang));
 
 export let lastEngine = 'none';
 
 export function voiceInfo() {
   const v = filipinoVoice();
   const fallback = v ? `system: ${v.name} (${v.lang}, on-device)` : 'clips: app/audio (espeak-ng) + on-device system voice';
-  return `${kokoroReady() ? 'Kokoro-82M (ef_dora), on-device' : 'Kokoro: naglo-load pa'} · fallback: ${fallback} · huling ginamit: ${lastEngine}`;
+  return `${kokoroReady() ? 'Kokoro-82M (ef_dora Filipino, af_heart English), on-device' : 'Kokoro: naglo-load pa'} · fallback: ${fallback} · huling ginamit: ${lastEngine}`;
 }
 
 let kokoroSource;
-async function playKokoro(text) {
+async function playKokoro(text, opts) {
   if (!kokoroReady()) return false;
   try {
-    const { audio, rate } = await synthesize(text);
+    const { audio, rate } = await synthesize(text, opts);
     actx ??= new (window.AudioContext || window.webkitAudioContext)();
     await actx.resume();
     const buf = actx.createBuffer(1, audio.length, rate);
@@ -71,6 +72,17 @@ function playClip(label) {
     a.onerror = () => res(false);
     a.play().catch(() => res(false));
   });
+}
+
+/** Speak English with a native English voice; Kokoro only when every word is in the lexicon. */
+export async function speakEnglish(text) {
+  lastEngine = await (async () => {
+    if (await playKokoro(text, { lang: 'en', strict: true })) return 'kokoro-en';
+    if (await speakSystem(text, englishVoice())) return 'system-en';
+    if (await playKokoro(text, { lang: 'en' })) return 'kokoro-en-guess';
+    return 'none';
+  })();
+  return lastEngine;
 }
 
 /** Speak a sign label (e.g. 'tulong') or free text. */

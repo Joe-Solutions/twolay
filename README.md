@@ -22,8 +22,9 @@ sees "Ano ang sakit?" + sakit clip ◀─ {"text":..,"signs":["sakit"]} ◀─ W
 | Hand tracking | MediaPipe Hand Landmarker `hand_landmarker.task` (float16) + MediaPipe Tasks Vision 1.1.0 wasm (SIMD and no-SIMD builds) | 7.8 MB + 25 MB | phone, wasm (GPU→CPU fallback) |
 | Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Ships pre-trained on 11 signs from the FSL-105 dataset (Deaf signers, CC BY 4.0); the team adds the rest in-app. | 3 MB pack + IndexedDB | phone, JS |
 | Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog | 43 MB + 39 MB runtime | phone, Web Worker |
+| Translation English ↔ Filipino | **Helsinki-NLP OPUS-MT** `opus-mt-en-tl` and `opus-mt-tl-en` (Marian, ~75M params each, Apache-2.0), converted to ONNX and int8-quantized by `scripts/make_opus_mt.sh`, run with the Transformers.js `translation` pipeline in a worker. Used only when a phone's language is set to **English**: Boses speech is transcribed in English and translated to Filipino for the signer; signs are voiced in English on Boses (built-in signs use their fixed English, added words go through tl→en). About 50–400 ms per phrase on a laptop | 2 × 134 MB | phone, Web Worker |
 | Text → sign | Keyword table for Filipino + Taglish, one-typo tolerant (`app/js/signs.js`) | — | phone |
-| Text → voice | **Kokoro-82M v1.0** (hexgrad, Apache-2.0), int8 ONNX via Transformers.js in a worker, Spanish voice `ef_dora`. It has no Filipino voice, so `app/js/tl-g2p.js` turns Tagalog spelling into IPA (letter rules, penultimate stress, a short final-stress word list). About 1–3 s per phrase on a laptop. Until it has loaded, or if it fails: an on-device Filipino system voice (`speechSynthesis`, `localService` only), then 17 clips pre-rendered with **espeak-ng** in `app/audio/` | 92 MB + 0.5 MB | phone / laptop, wasm |
+| Text → voice | **Kokoro-82M v1.0** (hexgrad, Apache-2.0), int8 ONNX via Transformers.js in a worker, Spanish voice `ef_dora` for Filipino, American voice `af_heart` for English. English IPA comes from `app/models/en-lexicon.json` (10k words pre-phonemized with espeak-ng at build time); a sentence with an unknown word uses an on-device English system voice instead, if there is one. Kokoro has no Filipino voice, so `app/js/tl-g2p.js` turns Tagalog spelling into IPA (letter rules, penultimate stress, a short final-stress word list). About 1–3 s per phrase on a laptop. Until it has loaded, or if it fails: an on-device Filipino system voice (`speechSynthesis`, `localService` only), then 17 clips pre-rendered with **espeak-ng** in `app/audio/` | 92 MB + 1 MB + 0.25 MB | phone / laptop, wasm |
 | Sign playback | FSL-105 clips for the 11 starter signs (`app/clips/`), plus clips the team records | 0.5 MB | phone |
 
 Not used anywhere: cloud STT/TTS, sign-language APIs, generated avatars, API keys, uploads.
@@ -54,6 +55,9 @@ Only needed to upgrade a model or rebuild `app/vendor`, `app/models` or `app/aud
 brew install espeak-ng   # for the spoken word clips in app/audio
 npm run setup            # MediaPipe, Whisper tiny, ONNX Runtime, QR libs -> app/; renders app/audio
 ```
+
+Rebuilding the OPUS-MT translators (`scripts/make_opus_mt.sh`, only run when they are missing) also needs
+[`uv`](https://docs.astral.sh/uv/); it creates a Python 3.12 venv in `.vendor-tmp/`.
 
 After you change any file in `app/`, run `npm run manifest` so installed phones pick up the new version.
 
@@ -215,6 +219,10 @@ npm test
   message, and log a host-to-host route.
 - `e2e-train.mjs`: the Turuan screen records takes from the fake camera, undoes one, saves the playback clip,
   recognises *Tulong* with **Subukan**, and turns the camera off on Home.
+- `e2e-translate.mjs`: with Boses set to English, OPUS-MT translates "Thank you" → "Salamat" and back; a fake mic
+  saying "I need water, please." reaches Kamay as "Kailangan ko ng tubig." with the *tubig* sign; a *Salamat* sign is
+  shown as "Salamat — thank you" and spoken with Kokoro's English voice; an added word is translated tl→en; and
+  Whisper (English) correctly hears four phrases Kokoro said.
 - `e2e-voice.mjs`: loads Kokoro from this origin only, speaks six Tagalog phrases, and saves them to
   `test/voice-samples/*.wav` so you can listen.
 
@@ -229,6 +237,9 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
   `onnx-community/whisper-base` (about 3× slower) in `vendor.sh` and `app/js/whisper-worker.js`.
 - The espeak-ng voice is robotic. A phone with an offline Filipino system voice (Android: Google TTS → Filipino,
   downloaded) is used automatically instead.
+- OPUS-MT is a small model. Short phrases translate well ("Where is the bathroom?" → "Nasaan ang banyo?"), but
+  single Filipino words without context can come out odd ("kumusta" → "what"), so built-in signs keep a fixed
+  English meaning and the translator is only used for added words and free speech. Full offline save is now about 500 MB.
 - Pairing must be redone after the link drops, by scanning the QR codes again.
 
 ## Layout
@@ -243,11 +254,13 @@ app/                    the whole app (static, no build step)
   js/stt.js             mic + VAD -> whisper-worker.js
   js/signs.js           labels + Filipino/Taglish phrase map
   js/voice.js           local TTS + earcons
+  js/translate.js       English <-> Filipino -> mt-worker.js (OPUS-MT)
+  js/en-g2p.js          English words -> IPA for Kokoro (models/en-lexicon.json)
   js/link.js            DemoLink (BroadcastChannel), P2PLink (WebRTC, QR pairing)
   js/netlog.js          network log + offline guard
   js/offline.js, sw.js  save-for-offline cache
   vendor/, models/      vendored runtimes and models (from scripts/vendor.sh)
   audio/                espeak-ng word clips
-scripts/                vendor.sh, make_voice.sh, build_manifest.py, serve.py, make_cert.sh
+scripts/                vendor.sh, make_voice.sh, make_opus_mt.sh, make_en_lexicon.py, build_manifest.py, serve.py, make_cert.sh
 test/                   Playwright end-to-end tests
 ```
