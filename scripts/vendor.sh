@@ -11,6 +11,7 @@ MP_VER="1.1.0"                              # @mediapipe/tasks-vision
 TF_VER="4.3.1"                              # @huggingface/transformers
 ORT_VER="1.31.0-dev.20260914-8d85527a0"     # onnxruntime-web pinned by transformers 4.3.1
 HAND_MODEL_URL="https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task"
+POSE_MODEL_URL="https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task"
 WHISPER_REPO="onnx-community/whisper-tiny"
 HF="https://huggingface.co/$WHISPER_REPO/resolve/main"
 
@@ -45,6 +46,8 @@ PY
 
 echo "==> MediaPipe hand_landmarker.task"
 [ -s "$APP/models/mediapipe/hand_landmarker.task" ] || curl -fsSL "$HAND_MODEL_URL" -o "$APP/models/mediapipe/hand_landmarker.task"
+echo "==> MediaPipe pose_landmarker_lite.task (hand position relative to face / shoulders)"
+[ -s "$APP/models/mediapipe/pose_landmarker_lite.task" ] || curl -fsSL "$POSE_MODEL_URL" -o "$APP/models/mediapipe/pose_landmarker_lite.task"
 
 echo "==> Transformers.js $TF_VER (bundles ONNX Runtime JS)"
 fetch_pkg @huggingface/transformers "$TF_VER" tf
@@ -72,6 +75,11 @@ for f in config.json generation_config.json preprocessor_config.json tokenizer.j
   out="$APP/models/$WHISPER_REPO/$f"
   [ -s "$out" ] || curl -fsSL "$HF/$f" -o "$out" || echo "   (optional file missing: $f)"
 done
+
+echo "==> Silero VAD v5 (speech start / end on the Boses mic)"
+mkdir -p "$APP/models/onnx-community/silero-vad/onnx"
+[ -s "$APP/models/onnx-community/silero-vad/onnx/model.onnx" ] ||
+  curl -fsSL "https://huggingface.co/onnx-community/silero-vad/resolve/main/onnx/model.onnx" -o "$APP/models/onnx-community/silero-vad/onnx/model.onnx"
 
 echo "==> Kokoro-82M v1.0 (int8) text-to-speech + Spanish and English voices"
 KOKORO_REPO="onnx-community/Kokoro-82M-v1.0-ONNX"

@@ -4,6 +4,8 @@
 |---|---|---|
 | MediaPipe Tasks Vision 1.1.0 (telemetry flush disabled by `scripts/vendor.sh`) | `app/vendor/mediapipe/` | Apache-2.0 |
 | MediaPipe Hand Landmarker model | `app/models/mediapipe/hand_landmarker.task` | Apache-2.0 |
+| MediaPipe Pose Landmarker lite model | `app/models/mediapipe/pose_landmarker_lite.task` | Apache-2.0 |
+| Silero VAD v5 (ONNX, via onnx-community) | `app/models/onnx-community/silero-vad/` | MIT |
 | Transformers.js 4.3.1 | `app/vendor/transformers/` | Apache-2.0 |
 | ONNX Runtime Web 1.31.0-dev | `app/vendor/ort/` | MIT |
 | OpenAI Whisper tiny (ONNX export by onnx-community) | `app/models/onnx-community/whisper-tiny/` | MIT |

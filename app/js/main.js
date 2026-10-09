@@ -9,7 +9,7 @@ import { framesFromVideoFile } from './hands.js';
 import { store, shippedClip } from './store.js';
 import { DemoLink, P2PLink } from './link.js';
 import { speak, speakEnglish, earcon, unlockAudio, voiceInfo } from './voice.js';
-import { loadWhisper, recordUtterance, transcribe } from './stt.js';
+import { loadWhisper, loadVAD, recordUtterance, transcribe } from './stt.js';
 import { loadKokoro } from './kokoro.js';
 import { loadTranslator, translate } from './translate.js';
 import { renderQR, scanQR } from './qrpair.js';
@@ -415,6 +415,7 @@ async function enterBoses() {
   const btn = $('#b-btn');
   btn.classList.add('busy');
   btn.textContent = 'Naglo-load…';
+  loadVAD().catch(() => {});
   try {
     await loadWhisper((p) => {
       if (p.progress != null) btn.textContent = `Naglo-load ${Math.round(p.progress)}%`;

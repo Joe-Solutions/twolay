@@ -9,6 +9,7 @@ for f in thumbs_up victory pointing_up; do
 done
 [ -s woman_hands.jpg ] || curl -fsSL https://storage.googleapis.com/mediapipe-tasks/hand_landmarker/woman_hands.jpg -o woman_hands.jpg
 [ -s ano48.wav ] || { espeak-ng -v id -s 130 -w ano.wav "Ano ang sakit?" && ffmpeg -loglevel error -y -i ano.wav -af "adelay=1500,apad=pad_dur=3" -ar 48000 -ac 1 ano48.wav; }
+[ -s noise48.wav ] || ffmpeg -loglevel error -y -f lavfi -i "anoisesrc=color=pink:amplitude=0.3:d=6" -ar 48000 -ac 1 noise48.wav
 [ -s water48.wav ] || { espeak-ng -v en-us -s 140 -w water.wav "I need water, please." && ffmpeg -loglevel error -y -i water.wav -af "adelay=1500,apad=pad_dur=3" -ar 48000 -ac 1 water48.wav; }
 
 clip() { # img out dx dy scale

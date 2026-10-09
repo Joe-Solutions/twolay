@@ -26,7 +26,9 @@ sees "Kailangan ko ng tubig" + tubig ◀─ OPUS-MT en→tl ◀─ Whisper (Engl
 | Job | Model / engine | Size | Runs |
 |---|---|---|---|
 | Hand tracking | MediaPipe Hand Landmarker `hand_landmarker.task` (float16) + MediaPipe Tasks Vision 1.1.0 wasm (SIMD and no-SIMD builds) | 7.8 MB + 25 MB | phone, wasm (GPU→CPU fallback) |
-| Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Ships pre-trained on 11 signs from the FSL-105 dataset (Deaf signers, CC BY 4.0); the team adds the rest in-app. | 3 MB pack + IndexedDB | phone, JS |
+| Body position | MediaPipe Pose Landmarker **lite** `pose_landmarker_lite.task` (float16, Apache-2.0): nose + shoulders, so each hand's wrist and index tip are measured from the face in shoulder widths (chin vs chest vs side). About 11 ms per frame on CPU, run ~15×/s on the live camera | 5.8 MB | phone, wasm (CPU) |
+| Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences (hand shape + position relative to the body), mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). When both takes have the body, the hand's position in the camera image is ignored, so holding the phone closer or off-center doesn't matter. Ships pre-trained on 11 signs from the FSL-105 dataset (Deaf signers, CC BY 4.0); the team adds the rest in-app. | 3 MB pack + IndexedDB | phone, JS |
+| Speech start / end | **Silero VAD v5** (ONNX, MIT) in a worker: speech probability every 32 ms. Recording starts counting only on real voice and stops after 0.9 s of silence; fans, traffic and room noise are ignored, so Whisper never runs on noise (where it invents words). Leading silence is trimmed before Whisper. Falls back to a loudness check if it can't load | 2.2 MB | phone, Web Worker |
 | Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog (English when the phone is set to English) | 43 MB + 39 MB runtime | phone, Web Worker |
 | Translation English ↔ Filipino | **Helsinki-NLP OPUS-MT** `opus-mt-en-tl` and `opus-mt-tl-en` (Marian, ~75M params each, Apache-2.0), converted to ONNX and int8-quantized by `scripts/make_opus_mt.sh`, run with the Transformers.js `translation` pipeline in a worker. Used only when a phone's language is set to **English**: Boses speech is transcribed in English and translated to Filipino for the signer; signs are voiced in English on Boses (built-in signs use their fixed English, added words go through tl→en). About 50–400 ms per phrase on a laptop | 2 × 134 MB | phone, Web Worker |
 | Text → sign | Keyword table for Filipino + Taglish, one-typo tolerant (`app/js/signs.js`) | — | phone |
@@ -88,8 +90,10 @@ signs performed by adult Deaf FSL signers and reviewed by an FSL expert (CC BY 4
 | naiintindihan | UNDERSTAND | 20 |
 | hindi ko maintindihan | DON’T UNDERSTAND | 21 |
 
-5-fold cross-validation on held-out takes (`npm run eval:pack`): **87% correct, under 1% wrong, 13% "hindi kita"**.
-Per sign: 73% (tama) to 100% (salamat). GOOD AFTERNOON and GOOD EVENING were tried and left out: they share the
+5-fold cross-validation on held-out takes (`npm run eval:pack`): **88% correct, under 1% wrong, 12% "hindi kita"**
+(hand shape only: 87% / 13%). Per sign: 75% (oo) to 100% (salamat). Body position helps the weakest signs most:
+*tama* 68% → 86%, *naiintindihan* 75% → 90%. `BODY_WEIGHTS=0,8,12 npm run eval:pack` compares weights, `SHIFT=1`
+re-frames the held-out takes (signer further away and off-center). GOOD AFTERNOON and GOOD EVENING were tried and left out: they share the
 "good" movement and were confused with each other (29% / 41% correct).
 The same signers appear in training and test folds, so expect lower accuracy on a new person.
 
@@ -97,7 +101,9 @@ Each of these also has a playback clip of a Deaf signer in `app/clips/`. The pac
 ⚙ → Turuan. Rebuild it with `npm run build:pack`.
 
 The dataset framing (full upper body, blue background) differs from a selfie camera, so add 3–5 of your own
-takes per sign for the best accuracy.
+takes per sign for the best accuracy. Keep your **face and both shoulders in the frame** (blue dots on the nose and
+shoulders show the body was found). Takes recorded before body tracking still work, compared on hand shape only;
+re-record them to get the location benefit.
 
 ### The other 6 signs need a signer
 
@@ -264,6 +270,8 @@ npm test
   saying "I need water, please." reaches Kamay as "Kailangan ko ng tubig." with the *tubig* sign; a *Salamat* sign is
   shown as "Salamat — thank you" and spoken with Kokoro's English voice; an added word is translated tl→en; and
   Whisper (English) correctly hears four phrases Kokoro said.
+- `e2e-vad.mjs`: loud pink noise with nobody talking gives "Walang narinig" and sends nothing; "Ano ang sakit?" after
+  1.5 s of silence is detected by Silero, trimmed to the speech, and transcribed to *sakit*.
 - `e2e-voice.mjs`: loads Kokoro from this origin only, speaks six Tagalog phrases, and saves them to
   `test/voice-samples/*.wav` so you can listen.
 
@@ -283,6 +291,8 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
   English meaning and the translator is only used for added words and free speech. Full offline save is about 500 MB.
 - The English voice only knows the ~10k words in `en-lexicon.json`. A sentence with any other word (names, rare words)
   uses the phone's offline English system voice; with none installed, Kokoro guesses that word from its spelling.
+- Body position needs the face and shoulders in view. If they aren't (camera too close), recognition falls back to
+  hand shape and camera position only.
 - Pairing must be redone after the link drops, by scanning the QR codes again.
 
 ## Layout
@@ -291,10 +301,10 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
 app/                    the whole app (static, no build step)
   index.html            CSP locks network to this origin
   js/main.js            screens, roles, setup dialog
-  js/hands.js           MediaPipe wrapper + landmark features
+  js/hands.js           MediaPipe hands + pose, landmark + body-position features
   js/classifier.js      sign kNN with "hindi kita" rejection
   js/camera.js          camera + one-sign segmentation
-  js/stt.js             mic + VAD -> whisper-worker.js
+  js/stt.js             mic + Silero VAD (vad-worker.js) -> whisper-worker.js
   js/signs.js           labels + Filipino/Taglish phrase map, added words
   js/trainer.js         Turuan screen (record, test, add words)
   js/store.js           IndexedDB samples, clips, packs
@@ -307,7 +317,7 @@ app/                    the whole app (static, no build step)
   js/netlog.js          network log + offline guard
   js/offline.js, sw.js  save-for-offline cache
   vendor/               MediaPipe, Transformers.js, ONNX Runtime, QR libs (from scripts/vendor.sh)
-  models/               hand landmarker, Whisper tiny, Kokoro + voices, OPUS-MT en-tl / tl-en, en-lexicon.json
+  models/               hand + pose landmarkers, Silero VAD, Whisper tiny, Kokoro + voices, OPUS-MT en-tl / tl-en, en-lexicon.json
   packs/fsl105.json     starter training pack; clips/ its playback clips
   audio/                espeak-ng word clips
 scripts/                vendor.sh, make_voice.sh, make_opus_mt.sh + opus_mt_quantize.py, make_en_lexicon.py,

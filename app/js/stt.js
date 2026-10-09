@@ -1,10 +1,80 @@
-// Microphone capture with simple energy VAD, then local Whisper tiny in a worker.
+// Microphone capture with Silero VAD (energy VAD as fallback), then local Whisper tiny in a worker.
 import { netlog } from './netlog.js';
 
 const TARGET_RATE = 16000;
 const MAX_MS = 7000;
 const NO_SPEECH_MS = 5000;
 const END_SILENCE_MS = 900;
+const VAD_FRAME = 512;            // 32 ms at 16 kHz
+const VAD_ON = 0.5;               // speech starts above this probability
+const VAD_OFF = 0.35;             // and continues while above this
+const VAD_MIN_FRAMES = 3;         // ~100 ms of speech before it counts
+const LEAD_IN_MS = 400;           // audio kept before the detected start
+
+// ---------- Silero VAD worker ----------
+let vadWorker;
+let vadReady = null;
+let vadOk = false;
+let vadNext = 1;
+const vadPending = new Map();
+
+export function loadVAD() {
+  vadReady ??= new Promise((res, rej) => {
+    netlog.model('Silero VAD v5 (ONNX)', 'models/onnx-community/silero-vad/');
+    vadWorker = new Worker(new URL('./vad-worker.js', import.meta.url), { type: 'module' });
+    vadWorker.addEventListener('message', ({ data }) => {
+      if (data.type === 'booted') vadWorker.postMessage({ type: 'load' });
+      else if (data.type === 'ready') { vadOk = true; res(); }
+      else if (data.type === 'net') {
+        if (data.blocked) netlog.blocked(data.url, 'vad-worker fetch');
+        else netlog.resource(data.url, 'vad-worker');
+      } else if (data.id) {
+        vadPending.get(data.id)?.(data);
+        vadPending.delete(data.id);
+      } else if (data.type === 'error') rej(new Error(data.error));
+    });
+    vadWorker.onerror = (e) => rej(new Error(e.message));
+  });
+  vadReady.catch((err) => {
+    netlog.info(`Silero VAD unavailable, using energy VAD: ${err.message}`);
+    vadOk = false;
+  });
+  return vadReady;
+}
+
+export const vadActive = () => vadOk;
+
+function vadProbs(audio) {
+  const id = vadNext++;
+  return new Promise((res) => {
+    vadPending.set(id, (d) => res(d.type === 'probs' ? d.probs : null));
+    vadWorker.postMessage({ type: 'frames', id, audio }, [audio.buffer]);
+  });
+}
+
+/** Streaming average-downsampler to 16 kHz. */
+class Downsampler {
+  constructor(rate) {
+    this.ratio = rate / TARGET_RATE;
+    this.acc = 0;
+    this.n = 0;
+    this.pos = 0;   // source samples consumed toward the current output sample
+  }
+  push(chunk) {
+    const out = [];
+    for (let i = 0; i < chunk.length; i++) {
+      this.acc += chunk[i];
+      this.n++;
+      if (++this.pos >= this.ratio) {
+        out.push(this.acc / this.n);
+        this.acc = 0;
+        this.n = 0;
+        this.pos -= this.ratio;
+      }
+    }
+    return out;
+  }
+}
 
 let worker;
 let booted;
@@ -117,6 +187,18 @@ export function recordUtterance({ onLevel } = {}) {
     let lastVoice = 0;
     let seen = 0;
 
+    // Silero decides on audio time (ms of 16 kHz audio); energy VAD is only the fallback.
+    const useVad = vadOk;
+    if (useVad) vadWorker.postMessage({ type: 'reset' });
+    const down = new Downsampler(ctx.sampleRate);
+    let vadBuf = [];
+    let vadBusy = false;
+    let vadFrames = 0;
+    let voicedRun = 0;
+    let inSpeech = false;
+    let vadStartMs = -1;
+    let vadLastMs = -1;
+
     await new Promise((resolve) => {
       stopFn = resolve;
       const tick = () => {
@@ -129,13 +211,39 @@ export function recordUtterance({ onLevel } = {}) {
           const rms = Math.sqrt(s / c.length);
           // Quietest chunk = room noise, so speaking right after the tap doesn't raise the bar.
           floor = Math.min(floor, Math.max(0.002, Math.min(0.03, rms)));
-          const voiced = rms > Math.max(0.015, floor * 3);
-          if (voiced) { lastVoice = now; speechAt ||= now; }
+          const voiced = useVad ? inSpeech : rms > Math.max(0.015, floor * 3);
+          if (!useVad && voiced) { lastVoice = now; speechAt ||= now; }
           onLevel?.(Math.min(1, rms * 12), voiced);
+          if (useVad) vadBuf.push(...down.push(c));
         }
+        if (useVad && !vadBusy && vadBuf.length >= VAD_FRAME) {
+          const n = Math.floor(vadBuf.length / VAD_FRAME) * VAD_FRAME;
+          const batch = Float32Array.from(vadBuf.slice(0, n));
+          vadBuf = vadBuf.slice(n);
+          vadBusy = true;
+          vadProbs(batch).then((probs) => {
+            vadBusy = false;
+            for (const p of probs ?? []) {
+              const ms = (vadFrames++ * VAD_FRAME * 1000) / TARGET_RATE;
+              voicedRun = p > (inSpeech ? VAD_OFF : VAD_ON) ? voicedRun + 1 : 0;
+              if (voicedRun >= VAD_MIN_FRAMES && !inSpeech) {
+                inSpeech = true;
+                if (vadStartMs < 0) vadStartMs = ms - (VAD_MIN_FRAMES - 1) * 32;
+              }
+              if (p > VAD_OFF && vadStartMs >= 0) vadLastMs = ms;
+              if (p <= VAD_OFF) inSpeech = false;
+            }
+          });
+        }
+        const audioMs = (vadFrames * VAD_FRAME * 1000) / TARGET_RATE;
         if (now > MAX_MS) return resolve();
-        if (!speechAt && now > NO_SPEECH_MS) return resolve();
-        if (speechAt && now - lastVoice > END_SILENCE_MS) return resolve();
+        if (useVad) {
+          if (vadStartMs < 0 && audioMs > NO_SPEECH_MS) return resolve();
+          if (vadStartMs >= 0 && audioMs - vadLastMs > END_SILENCE_MS) return resolve();
+        } else {
+          if (!speechAt && now > NO_SPEECH_MS) return resolve();
+          if (speechAt && now - lastVoice > END_SILENCE_MS) return resolve();
+        }
         setTimeout(tick, 60);
       };
       tick();
@@ -146,7 +254,9 @@ export function recordUtterance({ onLevel } = {}) {
     stream.getTracks().forEach((t) => t.stop());
     const rate = ctx.sampleRate;
     await ctx.close();
-    return { audio: resampleTo16k(chunks, rate), heardSpeech: !!speechAt };
+    let audio = resampleTo16k(chunks, rate);
+    if (useVad && vadStartMs > LEAD_IN_MS) audio = audio.slice(Math.floor(((vadStartMs - LEAD_IN_MS) * TARGET_RATE) / 1000));
+    return { audio, heardSpeech: useVad ? vadStartMs >= 0 : !!speechAt, vad: useVad ? 'silero' : 'energy' };
   })();
   return { done, stop: () => stopFn?.() };
 }
