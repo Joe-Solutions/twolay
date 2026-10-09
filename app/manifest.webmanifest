@@ -1,7 +1,7 @@
 {
   "name": "Twolay",
   "short_name": "Twolay",
-  "description": "Sign ↔ boses, offline, phone to phone.",
+  "description": "Sign ↔ boses, offline, sa isang phone.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

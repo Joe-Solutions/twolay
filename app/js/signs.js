@@ -55,7 +55,7 @@ function loadWords() {
   }
 }
 
-/** Replace the added words (e.g. with the Kamay phone's list). Returns true if anything changed. */
+/** Replace the added words (e.g. from an imported pack). Returns true if anything changed. */
 export function setCustomWords(words) {
   const before = JSON.stringify(customWords());
   applyWords(words.map((w) => String(w).trim()).filter(Boolean).slice(0, 100));

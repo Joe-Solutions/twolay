@@ -98,13 +98,6 @@ else
 fi
 [ -s "$APP/models/en-lexicon.json" ] || python3 "$ROOT/scripts/make_en_lexicon.py" || echo "   (skipped: needs espeak-ng + the OPUS-MT vocab)"
 
-echo "==> QR pairing libs (qrcode-generator, jsQR)"
-fetch_pkg qrcode-generator 2.0.4 qrgen
-fetch_pkg jsqr 1.4.0 jsqr
-mkdir -p "$APP/vendor/qr"
-cp qrgen/package/dist/qrcode.mjs "$APP/vendor/qr/qrcode.mjs"
-cp jsqr/package/dist/jsQR.js "$APP/vendor/qr/jsQR.js"
-
 echo "==> Spoken-word fallback clips"
 bash "$ROOT/scripts/make_voice.sh" || echo "   (skipped: install espeak-ng or piper to generate app/audio/*.wav)"
 
