@@ -148,11 +148,19 @@ export function textToSigns(text, max = 3) {
     if (at >= 0) hits.push({ at, label });
   }
   let pos = 0;
-  for (const word of norm.trim().split(' ')) {
+  const words = norm.trim().split(' ');
+  const found = words.map((word) => {
     const at = norm.indexOf(` ${word} `, pos);
     pos = at + 1;
     const label = word && wordLabel(word);
     if (label) hits.push({ at, label });
+    return { at, label };
+  });
+  // Whisper tiny sometimes splits a Tagalog word in two ("sakit" -> "sa kith"): try unmatched neighbours joined.
+  for (let i = 0; i + 1 < words.length; i++) {
+    if (found[i].label || found[i + 1].label) continue;
+    const label = wordLabel(words[i] + words[i + 1]);
+    if (label) hits.push({ at: found[i].at, label });
   }
   hits.sort((a, b) => a.at - b.at);
   return [...new Set(hits.map((h) => h.label))].slice(0, max);

@@ -89,6 +89,9 @@ console.log(`  boses played local voice clip: ${spoke}`);
 const audienceClip = await boses.evaluate(() => !document.querySelector('#b-clipbox').hidden && document.querySelector('#b-clip-label').textContent);
 console.log(`  boses audience clip: ${audienceClip}`);
 if (audienceClip !== 'TULONG') throw new Error('audience mode: Boses should show the TULONG sign clip');
+const kamaySpoke = await kamay.evaluate(() => performance.getEntriesByType('resource').some((r) => r.name.includes('/audio/tulong')));
+console.log(`  kamay said its own sign: ${kamaySpoke}`);
+if (!kamaySpoke) throw new Error('audience mode: Kamay should say the sign it recognised');
 
 step('boses: whisper load + speak "Ano ang sakit?"');
 await boses.waitForFunction(() => document.querySelector('#b-btn').textContent === 'Boses', null, { timeout: 120000 });
