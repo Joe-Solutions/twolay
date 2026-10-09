@@ -1,6 +1,6 @@
 // Cache-first service worker. The page fills the cache (with progress) from asset-manifest.json;
 // after that every request is answered from this phone, Wi-Fi or not.
-const PREFIX = 'tulay-';
+const PREFIX = 'twolay-';
 
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', (e) => e.waitUntil(self.clients.claim()));

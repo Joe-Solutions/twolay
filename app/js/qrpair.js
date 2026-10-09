@@ -20,7 +20,7 @@ export function renderQR(el, text) {
   el.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 4, scalable: true });
 }
 
-/** Scan with the rear camera until a Tulay code is found. Returns { promise, cancel }. */
+/** Scan with the rear camera until a Twolay code is found. Returns { promise, cancel }. */
 export function scanQR(video) {
   let stream;
   let stopped = false;

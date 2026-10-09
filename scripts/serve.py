@@ -66,9 +66,9 @@ def main():
         ctx.load_cert_chain(a.cert, a.key)
         httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
     scheme = "https" if tls else "http"
-    print(f"Tulay: {scheme}://localhost:{port}/")
+    print(f"Twolay: {scheme}://localhost:{port}/")
     if a.lan:
-        print(f"Tulay on hotspot: {scheme}://{lan_ip()}:{port}/")
+        print(f"Twolay on hotspot: {scheme}://{lan_ip()}:{port}/")
         if not tls:
             print("  note: phones need HTTPS for camera/mic. Pass --cert/--key (see README).")
     print(f"Demo: open {scheme}://localhost:{port}/ and tap 'Demo mode'")

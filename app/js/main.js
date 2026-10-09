@@ -23,7 +23,7 @@ const state = {
   capture: null,
   recording: null,
   training: false,
-  auto: localStorage.getItem('tulay.auto') === '1',
+  auto: localStorage.getItem('twolay.auto') === '1',
   cooldownUntil: 0,
   handStreak: 0,
 };
@@ -302,7 +302,7 @@ $('#import-clips').onchange = async (e) => {
 $('#pack-export').onclick = async () => {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(await store.exportPack());
-  a.download = `tulay-pack-${new Date().toISOString().slice(0, 10)}.json`;
+  a.download = `twolay-pack-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
 };
 $('#pack-import').onchange = async (e) => {
@@ -319,13 +319,13 @@ $('#pack-import').onchange = async (e) => {
 };
 $('#train-clear').onclick = async () => {
   if (!confirm('Burahin lahat ng training sample at clip sa phone na ito?')) return;
-  indexedDB.deleteDatabase('tulay');
+  indexedDB.deleteDatabase('twolay');
   location.reload();
 };
 $('#auto-mode').checked = state.auto;
 $('#auto-mode').onchange = (e) => {
   state.auto = e.target.checked;
-  localStorage.setItem('tulay.auto', state.auto ? '1' : '0');
+  localStorage.setItem('twolay.auto', state.auto ? '1' : '0');
 };
 
 // ---------- Boses (speaker) ----------
@@ -410,7 +410,7 @@ async function enterRole(role) {
   state.link?.setRole(role);
   $('#role-pill').hidden = false;
   $('#role-pill').textContent = role === 'kamay' ? '🤟 Kamay' : '🗣 Boses';
-  document.title = `Tulay — ${role === 'kamay' ? 'Kamay' : 'Boses'}`;
+  document.title = `Twolay — ${role === 'kamay' ? 'Kamay' : 'Boses'}`;
   history.replaceState(null, '', `?role=${role}${state.link?.kind === 'demo' ? '&link=demo' : ''}`);
   if (role === 'kamay') await enterKamay();
   else await enterBoses();
@@ -434,7 +434,7 @@ document.addEventListener('keydown', (e) => {
 
 $('#demo-btn').onclick = async () => {
   useLink(new DemoLink());
-  window.open(`${location.pathname}?role=boses&link=demo`, 'tulay-boses', 'width=520,height=860');
+  window.open(`${location.pathname}?role=boses&link=demo`, 'twolay-boses', 'width=520,height=860');
   await enterRole('kamay');
 };
 
@@ -459,7 +459,7 @@ $('#use-demo').onclick = () => { useLink(new DemoLink()); toast('Demo link: Broa
 $('#open-other').onclick = () => {
   if (state.link?.kind !== 'demo') useLink(new DemoLink());
   const other = state.role === 'boses' ? 'kamay' : 'boses';
-  window.open(`${location.pathname}?role=${other}&link=demo`, `tulay-${other}`, 'width=520,height=860');
+  window.open(`${location.pathname}?role=${other}&link=demo`, `twolay-${other}`, 'width=520,height=860');
 };
 $('#ping').onclick = () => toast(send({ t: 'ping' }) ? 'Test ipinadala' : 'Walang link');
 

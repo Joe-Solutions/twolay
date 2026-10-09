@@ -1,6 +1,6 @@
-# Tulay
+# Twolay
 
-**Tulay** ("bridge") is a two-way, fully offline conversation app between a **Deaf** person who signs and a **Blind** person who speaks.
+**Twolay** (from *tulay*, "bridge": a bridge between two people) is a two-way, fully offline conversation app between a **Deaf** person who signs and a **Blind** person who speaks.
 
 ```
 Person 1 (Deaf)                                     Person 2 (Blind)
@@ -20,7 +20,7 @@ sees "Ano ang sakit?" + sakit clip ◀─ {"text":..,"signs":["sakit"]} ◀─ W
 | Job | Model / engine | Size | Runs |
 |---|---|---|---|
 | Hand tracking | MediaPipe Hand Landmarker `hand_landmarker.task` (float16) + MediaPipe Tasks Vision 1.1.0 wasm (SIMD and no-SIMD builds) | 7.8 MB + 25 MB | phone, wasm (GPU→CPU fallback) |
-| Sign → word | Tulay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Trained in-app on the team's own clips. | KBs (IndexedDB) | phone, JS |
+| Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Trained in-app on the team's own clips. | KBs (IndexedDB) | phone, JS |
 | Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog | 43 MB + 39 MB runtime | phone, Web Worker |
 | Text → sign | Keyword table for Filipino + Taglish, one-typo tolerant (`app/js/signs.js`) | — | phone |
 | Text → voice | On-device system voice for Filipino if the phone has one (`speechSynthesis`, `localService` voices only), otherwise 12 clips pre-rendered with **espeak-ng** (Indonesian voice; Tagalog spelling is phonetic) in `app/audio/` | 0.5 MB | phone |
@@ -36,7 +36,7 @@ guard logs any blocked attempt in the Network log.
 ## Setup (once, on the build laptop, with internet)
 
 ```bash
-cd tulay
+cd twolay
 npm run setup          # downloads MediaPipe, Whisper tiny, ONNX Runtime, QR libs into app/; renders app/audio
 npm start              # http://localhost:8000
 ```
@@ -99,7 +99,7 @@ only contains the app and models; no user audio, video or text is ever sent.
 ### B. Two phones on a hotspot
 
 - **Where:** Phone A turns on its hotspot with **mobile data off** (so the hotspot has no internet). Phone B joins
-  it. Wi-Fi to any other network is off. Open Tulay from the home screen on both phones.
+  it. Wi-Fi to any other network is off. Open Twolay from the home screen on both phones.
 - **Pair:** both phones ⚙ → Link. Phone A: *Gumawa ng pairing code* (QR appears). Phone B: *I-scan ang code ni A*
   (rear camera), and an answer QR appears. Phone A: *I-scan ang sagot ni B*.
   Expected: both show **Konektado (phone)**; the Network log shows
