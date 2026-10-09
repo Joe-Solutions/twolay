@@ -1,5 +1,5 @@
 {
- "version": "4b50cd042082",
+ "version": "d6637caeff7d",
  "files": [
   "./",
   "./audio/ENGINE.txt",
@@ -53,6 +53,7 @@
   "./js/trainer.js",
   "./js/translate.js",
   "./js/tts-worker.js",
+  "./js/vad-worker.js",
   "./js/voice.js",
   "./js/whisper-worker.js",
   "./manifest.webmanifest",
@@ -70,6 +71,7 @@
   "./models/Helsinki-NLP/opus-mt-tl-en/tokenizer_config.json",
   "./models/en-lexicon.json",
   "./models/mediapipe/hand_landmarker.task",
+  "./models/mediapipe/pose_landmarker_lite.task",
   "./models/onnx-community/Kokoro-82M-v1.0-ONNX/config.json",
   "./models/onnx-community/Kokoro-82M-v1.0-ONNX/onnx/model_quantized.onnx",
   "./models/onnx-community/Kokoro-82M-v1.0-ONNX/tokenizer.json",
@@ -77,6 +79,7 @@
   "./models/onnx-community/Kokoro-82M-v1.0-ONNX/voices/af_heart.bin",
   "./models/onnx-community/Kokoro-82M-v1.0-ONNX/voices/ef_dora.bin",
   "./models/onnx-community/Kokoro-82M-v1.0-ONNX/voices/em_alex.bin",
+  "./models/onnx-community/silero-vad/onnx/model.onnx",
   "./models/onnx-community/whisper-tiny/added_tokens.json",
   "./models/onnx-community/whisper-tiny/config.json",
   "./models/onnx-community/whisper-tiny/generation_config.json",

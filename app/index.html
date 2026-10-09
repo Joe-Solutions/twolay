@@ -190,7 +190,9 @@
         <thead><tr><th>Gawain</th><th>Model / engine</th><th>Saan tumatakbo</th></tr></thead>
         <tbody>
           <tr><td>Hand tracking</td><td>MediaPipe Hand Landmarker (float16, <code>hand_landmarker.task</code>, 7.8 MB), MediaPipe Tasks Vision 1.1.0 wasm</td><td>Sa phone (wasm, GPU/CPU)</td></tr>
-          <tr><td>Sign → salita</td><td>Twolay nearest-neighbour classifier, pre-trained sa 11 FSL-105 sign + mga take ng team, may "hindi kita" rejection</td><td>Sa phone (JS)</td></tr>
+          <tr><td>Posisyon ng kamay sa katawan</td><td>MediaPipe Pose Landmarker lite (float16, <code>pose_landmarker_lite.task</code>, 5.8 MB): ilong at balikat, para malaman kung nasa baba, dibdib, o tabi ang kamay</td><td>Sa phone (wasm, GPU/CPU)</td></tr>
+          <tr><td>Sign → salita</td><td>Twolay nearest-neighbour classifier (hugis ng kamay + posisyon nito sa mukha at balikat), pre-trained sa 11 FSL-105 sign + mga take ng team, may "hindi kita" rejection</td><td>Sa phone (JS)</td></tr>
+          <tr><td>Simula / tapos ng salita</td><td>Silero VAD v5 (ONNX, 2.2 MB, MIT): hindi pinapansin ang ingay, hinihintay ang tunay na boses</td><td>Sa phone (wasm worker)</td></tr>
           <tr><td>Boses → teksto</td><td>OpenAI Whisper tiny multilingual, int8 ONNX (<code>onnx-community/whisper-tiny</code>, 43 MB), Transformers.js 4.3.1 + ONNX Runtime Web wasm</td><td>Sa phone (wasm worker)</td></tr>
           <tr><td>Teksto → sign</td><td>Keyword table, Filipino + Taglish (<code>js/signs.js</code>)</td><td>Sa phone</td></tr>
           <tr><td>Pagsasalin English ↔ Filipino</td><td>Helsinki-NLP OPUS-MT <code>opus-mt-en-tl</code> at <code>opus-mt-tl-en</code> (Marian, ~75M params bawat isa, int8 ONNX, Apache-2.0, 134 MB bawat isa), Transformers.js</td><td>Sa phone (wasm worker)</td></tr>
