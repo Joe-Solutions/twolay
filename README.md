@@ -304,7 +304,7 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
   same distance you will demo in, and use 5+ takes per sign.
 - Whisper **tiny** is weak at Tagalog. The keyword table absorbs common misspellings ("Anong ang sakit" still maps
   to *sakit*), but long sentences will be rough. Short, clear phrases work best. For better accuracy, swap in
-  `onnx-community/whisper-base` (about 3× slower) in `vendor.sh` and `app/js/whisper-worker.js`.
+  `onnx-community/whisper-base` (about 3× slower) in `vendor.sh` and `app/js/ai-whisper.js`.
 - The espeak-ng voice is robotic. A phone with an offline Filipino system voice (Android: Google TTS → Filipino,
   downloaded) is used automatically instead.
 - OPUS-MT is a small model. Short phrases translate well ("Where is the bathroom?" → "Nasaan ang banyo?"), but
@@ -316,8 +316,10 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
   hand shape and camera position only.
 - The camera watches one signer. Keep only the signer's hands in view: other people's hands in the frame can start a
   sign and give "hindi kita".
-- Memory: the Usap screen holds hand tracking, Silero, Whisper and Kokoro at once, about 1.3 GB in Safari's engine
-  (WebKit on a Mac). Older iPhones may still close the tab ("A problem repeatedly occurred"); close other tabs and apps first.
+- Memory: Silero, Whisper, Kokoro and OPUS-MT share one worker and one ONNX Runtime (iPhone Safari runs out of wasm
+  memory with one runtime per model), loaded one after another. The Usap screen settles at about 1 GB in Safari's
+  engine (WebKit on a Mac), peak 1.3 GB while loading. Older iPhones may still close the tab ("A problem repeatedly
+  occurred"); close other tabs and apps first.
 - Rest the hands briefly between signs. Signs chained with no pause at all are often missed (32% found in
   `eval:stream`), and about 6–9% of signs come out as the wrong word.
 
@@ -334,15 +336,16 @@ app/                    the whole app (static, no build step)
   js/hands.js           MediaPipe hands + pose, landmark + body-position features
   js/classifier.js      sign kNN with "hindi kita" rejection
   js/camera.js          camera (front/rear) + one-sign capture for Turuan
-  js/stt.js             mic + Silero VAD (vad-worker.js) -> whisper-worker.js
+  js/ai.js, ai-worker.js one worker + one ONNX Runtime for all models below (ai-*.js services)
+  js/stt.js             mic + Silero VAD (ai-vad.js) -> Whisper (ai-whisper.js)
   js/signs.js           labels + Filipino/Taglish phrase map, added words
   js/trainer.js         Turuan screen (record, test, add words)
   js/store.js           IndexedDB samples, clips, packs
   js/voice.js           speech output order + earcons
-  js/kokoro.js          Kokoro voice -> tts-worker.js
+  js/kokoro.js          Kokoro voice -> ai-kokoro.js
   js/tl-g2p.js          Tagalog spelling -> IPA
   js/en-g2p.js          English words -> IPA (models/en-lexicon.json)
-  js/translate.js       English <-> Filipino -> mt-worker.js (OPUS-MT)
+  js/translate.js       English <-> Filipino -> ai-translate.js (OPUS-MT)
   js/netlog.js          network log + offline guard
   js/offline.js, sw.js  save-for-offline cache
   vendor/               MediaPipe, Transformers.js, ONNX Runtime (from scripts/vendor.sh)
