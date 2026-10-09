@@ -6,14 +6,14 @@
   <!-- Offline by construction: only this origin, blob: and data: may be fetched. -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob:; worker-src 'self' blob:; connect-src 'self' blob: data:; img-src 'self' blob: data:; media-src 'self' blob: data: mediastream:; style-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self'; form-action 'none'">
   <meta name="theme-color" content="#101418">
-  <title>Tulay</title>
+  <title>Twolay</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg">
   <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
   <header class="bar">
-    <button id="home-btn" class="brand" aria-label="Tulay, bumalik sa simula">Tulay</button>
+    <button id="home-btn" class="brand" aria-label="Twolay, bumalik sa simula">Twolay</button>
     <span id="role-pill" class="pill" hidden></span>
     <button id="link-pill" class="pill link-idle" aria-label="Status ng link">Walang link</button>
     <span id="offline-pill" class="pill">Offline: ?</span>
@@ -22,7 +22,7 @@
 
   <main>
     <section id="home" class="screen">
-      <h1>Tulay</h1>
+      <h1>Twolay</h1>
       <p class="sub">Sign ↔ Boses, sa loob lang ng dalawang phone.</p>
       <div class="roles">
         <button class="role" data-role="kamay">
@@ -138,7 +138,7 @@
         <thead><tr><th>Gawain</th><th>Model / engine</th><th>Saan tumatakbo</th></tr></thead>
         <tbody>
           <tr><td>Hand tracking</td><td>MediaPipe Hand Landmarker (float16, <code>hand_landmarker.task</code>, 7.8 MB), MediaPipe Tasks Vision 1.1.0 wasm</td><td>Sa phone (wasm, GPU/CPU)</td></tr>
-          <tr><td>Sign → salita</td><td>Tulay nearest-neighbour classifier sa 12 sign, trained sa clips ng team, may "hindi kita" rejection</td><td>Sa phone (JS)</td></tr>
+          <tr><td>Sign → salita</td><td>Twolay nearest-neighbour classifier sa 12 sign, trained sa clips ng team, may "hindi kita" rejection</td><td>Sa phone (JS)</td></tr>
           <tr><td>Boses → teksto</td><td>OpenAI Whisper tiny multilingual, int8 ONNX (<code>onnx-community/whisper-tiny</code>, 43 MB), Transformers.js 4.3.1 + ONNX Runtime Web wasm</td><td>Sa phone (wasm worker)</td></tr>
           <tr><td>Teksto → sign</td><td>Keyword table, Filipino + Taglish (<code>js/signs.js</code>)</td><td>Sa phone</td></tr>
           <tr><td>Teksto → boses</td><td id="voice-info">espeak-ng clips + on-device system voice</td><td>Sa phone</td></tr>

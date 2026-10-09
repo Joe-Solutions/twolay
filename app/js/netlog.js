@@ -64,7 +64,7 @@ export function installGuard() {
     const url = typeof input === 'string' ? input : input.url;
     if (!isLocal(url)) {
       netlog.blocked(url, 'fetch');
-      return Promise.reject(new TypeError(`Tulay offline guard blocked ${url}`));
+      return Promise.reject(new TypeError(`Twolay offline guard blocked ${url}`));
     }
     return origFetch(input, init);
   };
@@ -73,7 +73,7 @@ export function installGuard() {
   XMLHttpRequest.prototype.open = function (method, url, ...rest) {
     if (!isLocal(url)) {
       netlog.blocked(url, 'xhr');
-      throw new TypeError(`Tulay offline guard blocked ${url}`);
+      throw new TypeError(`Twolay offline guard blocked ${url}`);
     }
     return origOpen.call(this, method, url, ...rest);
   };
@@ -81,7 +81,7 @@ export function installGuard() {
   const OrigWS = window.WebSocket;
   window.WebSocket = function (url, protocols) {
     netlog.blocked(url, 'websocket');
-    throw new TypeError('Tulay offline guard: WebSocket disabled');
+    throw new TypeError('Twolay offline guard: WebSocket disabled');
   };
   window.WebSocket.prototype = OrigWS.prototype;
 

@@ -5,4 +5,4 @@ class Rec extends AudioWorkletProcessor {
     return true;
   }
 }
-registerProcessor('tulay-rec', Rec);
+registerProcessor('twolay-rec', Rec);

@@ -102,7 +102,7 @@ export function recordUtterance({ onLevel } = {}) {
     const onChunk = (buf) => chunks.push(buf);
     if (ctx.audioWorklet) {
       await ctx.audioWorklet.addModule(new URL('./rec-worklet.js', import.meta.url));
-      node = new AudioWorkletNode(ctx, 'tulay-rec');
+      node = new AudioWorkletNode(ctx, 'twolay-rec');
       node.port.onmessage = (e) => onChunk(e.data);
     } else {
       node = ctx.createScriptProcessor(4096, 1, 1);

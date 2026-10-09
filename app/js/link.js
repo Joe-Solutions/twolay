@@ -61,7 +61,7 @@ class BaseLink extends EventTarget {
 export class DemoLink extends BaseLink {
   constructor() {
     super('demo');
-    this.ch = new BroadcastChannel('tulay-demo-link');
+    this.ch = new BroadcastChannel('twolay-demo-link');
     this.ch.onmessage = (e) => this.receive(e.data);
     this.setStatus('waiting');
   }
@@ -93,7 +93,7 @@ async function unpack(code) {
     const b64 = code.slice(2).replace(/-/g, '+').replace(/_/g, '/');
     const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
     json = await new Response(new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
-  } else throw new Error('hindi Tulay pairing code');
+  } else throw new Error('hindi Twolay pairing code');
   const o = JSON.parse(json);
   return { type: o.t === 'o' ? 'offer' : 'answer', sdp: o.s };
 }
@@ -102,7 +102,7 @@ export class P2PLink extends BaseLink {
   constructor() {
     super('p2p');
     this.pc = new RTCPeerConnection({ iceServers: [] });
-    this.dc = this.pc.createDataChannel('tulay', { negotiated: true, id: 0, ordered: true });
+    this.dc = this.pc.createDataChannel('twolay', { negotiated: true, id: 0, ordered: true });
     this.dc.onopen = () => {
       this.lastSeen = Date.now();
       this.setStatus('connected');

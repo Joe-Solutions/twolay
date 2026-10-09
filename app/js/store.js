@@ -1,6 +1,6 @@
 // On-device storage (IndexedDB). Training samples and sign clips never leave the phone
 // unless the team explicitly exports a pack file.
-const DB = 'tulay';
+const DB = 'twolay';
 let dbp;
 
 function db() {
@@ -44,12 +44,12 @@ export const store = {
     const samples = await store.samples();
     const clips = {};
     for (const c of await store.clips()) clips[c.label] = await blobToDataURL(c.blob);
-    return new Blob([JSON.stringify({ tulayPack: 1, samples, clips })], { type: 'application/json' });
+    return new Blob([JSON.stringify({ twolayPack: 1, samples, clips })], { type: 'application/json' });
   },
 
   async importPack(file) {
     const pack = JSON.parse(await file.text());
-    if (pack.tulayPack !== 1) throw new Error('hindi Tulay pack ang file');
+    if ((pack.twolayPack ?? pack.tulayPack ?? pack.kamayPack) !== 1) throw new Error('hindi Twolay pack ang file');
     for (const s of pack.samples) await store.addSample(s.label, s.frames, s.source || 'pack');
     for (const [label, url] of Object.entries(pack.clips || {})) {
       await store.putClip(label, await (await fetch(url)).blob());
