@@ -1,5 +1,5 @@
 {
- "version": "5a5c459142ff",
+ "version": "d095b764d03a",
  "files": [
   "./",
   "./audio/ENGINE.txt",
@@ -15,6 +15,12 @@
   "./audio/tama.wav",
   "./audio/tubig.wav",
   "./audio/tulong.wav",
+  "./clips/hindi.mp4",
+  "./clips/kumusta.mp4",
+  "./clips/mali.mp4",
+  "./clips/oo.mp4",
+  "./clips/salamat.mp4",
+  "./clips/tama.mp4",
   "./css/app.css",
   "./icons/icon.svg",
   "./index.html",
@@ -46,6 +52,7 @@
   "./models/onnx-community/whisper-tiny/tokenizer.json",
   "./models/onnx-community/whisper-tiny/tokenizer_config.json",
   "./models/onnx-community/whisper-tiny/vocab.json",
+  "./packs/fsl105.json",
   "./vendor/mediapipe/vision_bundle.mjs",
   "./vendor/mediapipe/wasm/vision_wasm_internal.js",
   "./vendor/mediapipe/wasm/vision_wasm_internal.wasm",

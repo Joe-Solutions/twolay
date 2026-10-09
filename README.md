@@ -20,11 +20,11 @@ sees "Ano ang sakit?" + sakit clip ◀─ {"text":..,"signs":["sakit"]} ◀─ W
 | Job | Model / engine | Size | Runs |
 |---|---|---|---|
 | Hand tracking | MediaPipe Hand Landmarker `hand_landmarker.task` (float16) + MediaPipe Tasks Vision 1.1.0 wasm (SIMD and no-SIMD builds) | 7.8 MB + 25 MB | phone, wasm (GPU→CPU fallback) |
-| Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Trained in-app on the team's own clips. | KBs (IndexedDB) | phone, JS |
+| Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Ships pre-trained on 6 signs from the FSL-105 dataset (Deaf signers, CC BY 4.0); the team adds the rest in-app. | 1.5 MB pack + IndexedDB | phone, JS |
 | Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog | 43 MB + 39 MB runtime | phone, Web Worker |
 | Text → sign | Keyword table for Filipino + Taglish, one-typo tolerant (`app/js/signs.js`) | — | phone |
 | Text → voice | On-device system voice for Filipino if the phone has one (`speechSynthesis`, `localService` voices only), otherwise 12 clips pre-rendered with **espeak-ng** (Indonesian voice; Tagalog spelling is phonetic) in `app/audio/` | 0.5 MB | phone |
-| Sign playback | Pre-recorded clips by the team (saved when training, or `app/clips/<label>.mp4`) | — | phone |
+| Sign playback | FSL-105 clips for the 6 starter signs (`app/clips/`), plus clips the team records | 0.3 MB | phone |
 
 Not used anywhere: cloud STT/TTS, sign-language APIs, generated avatars, API keys, uploads.
 
@@ -45,6 +45,39 @@ npm start              # http://localhost:8000
 After you change any file in `app/`, run `npm run manifest` so phones pick up the new version.
 
 ## Train the 12 signs
+
+### Starter pack: 6 signs work out of the box
+
+`app/packs/fsl105.json` is pre-trained from **FSL-105**, a dataset of introductory Filipino Sign Language
+signs performed by adult Deaf FSL signers and reviewed by an FSL expert (CC BY 4.0). It covers:
+
+| Twolay sign | FSL-105 sign | Takes |
+|---|---|---|
+| oo | YES | 20 |
+| hindi | NO | 21 |
+| kumusta | HOW ARE YOU | 21 |
+| salamat | THANK YOU | 20 |
+| tama | CORRECT | 22 |
+| mali | WRONG | 21 |
+
+5-fold cross-validation on held-out takes (`npm run eval:pack`): **94% correct, 0% wrong, 6% "hindi kita"**.
+The same signers appear in training and test folds, so expect lower accuracy on a new person.
+
+Each of these also has a playback clip of a Deaf signer in `app/clips/`. The pack can be turned off in
+⚙ → Turuan. Rebuild it with `npm run build:pack`.
+
+The dataset framing (full upper body, blue background) differs from a selfie camera, so add 3–5 of your own
+takes per sign for the best accuracy.
+
+### The other 6 signs need a signer
+
+FSL-105 has no **tubig, pagkain, tulong, sakit, banyo, sandali**, and the demo script uses *tulong* and *sakit*.
+Record these from someone who knows FSL, ideally a Deaf signer. Do not make up gestures: judges and Deaf users
+will see them as FSL. Places to learn or confirm them: the University of the Philippines OSDS *Basic Filipino
+Sign Language* video series, the FSL Buddy app (De La Salle-College of Saint Benilde), and TulaySenyas
+(health signs, including *sakit*). Check each sign there before recording; this repo has not verified them.
+
+### Recording your own takes
 
 All training data stays on the device (IndexedDB). Two ways to train; both feed the same classifier.
 

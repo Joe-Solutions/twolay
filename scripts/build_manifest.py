@@ -11,10 +11,13 @@ files = sorted(
     for p in APP.rglob("*")
     if p.is_file() and p.name not in SKIP and not p.name.startswith(".")
 )
+# Content hash, so the version only changes when a file really changes (not on git checkout).
 digest = hashlib.sha256()
 for f in files:
-    st = (APP / f).stat()
-    digest.update(f"{f}:{st.st_size}:{int(st.st_mtime)}".encode())
+    digest.update(f.encode())
+    with open(APP / f, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            digest.update(chunk)
 
 manifest = {"version": digest.hexdigest()[:12], "files": ["./"] + [f"./{f}" for f in files]}
 (APP / "asset-manifest.json").write_text(json.dumps(manifest, indent=1))

@@ -114,19 +114,26 @@ export async function framesFromVideoFile(file, onProgress) {
   video.muted = true;
   video.playsInline = true;
   video.src = url;
-  await new Promise((res, rej) => {
-    video.onloadeddata = res;
-    video.onerror = () => rej(new Error(`cannot decode ${file.name}`));
-  });
-  const frames = [];
-  const step = 1 / 15;
-  for (let t = 0; t < video.duration; t += step) {
-    video.currentTime = t;
-    await new Promise((res) => (video.onseeked = res));
-    const f = frameFeature(detect(video));
-    frames.push(f);
-    onProgress?.(t / video.duration);
+  const release = () => {
+    video.removeAttribute('src');
+    video.load();
+    URL.revokeObjectURL(url);
+  };
+  try {
+    await new Promise((res, rej) => {
+      video.onloadeddata = res;
+      video.onerror = () => rej(new Error(`cannot decode ${file.name}: ${video.error?.message || video.error?.code}`));
+    });
+    const frames = [];
+    const step = 1 / 15;
+    for (let t = 0; t < video.duration; t += step) {
+      video.currentTime = t;
+      await new Promise((res) => (video.onseeked = res));
+      frames.push(frameFeature(detect(video)));
+      onProgress?.(t / video.duration);
+    }
+    return frames;
+  } finally {
+    release();
   }
-  URL.revokeObjectURL(url);
-  return frames;
 }
