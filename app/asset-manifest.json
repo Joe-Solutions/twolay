@@ -1,5 +1,5 @@
 {
- "version": "cb7e69950ccb",
+ "version": "a1ec9ae4fbad",
  "files": [
   "./",
   "./audio/ENGINE.txt",
@@ -159,7 +159,7 @@
   "./js/signs.js": "1385137d6f297165",
   "./js/spotter.js": "8eb77d28db94ee31",
   "./js/store.js": "f0448f700cb1f98a",
-  "./js/stt.js": "6aefa7528d9e94a7",
+  "./js/stt.js": "dce5c73805ec1cfa",
   "./js/tl-g2p.js": "cfd23df950388802",
   "./js/trainer.js": "e30c5e9138885288",
   "./js/translate.js": "32f306445489d305",
