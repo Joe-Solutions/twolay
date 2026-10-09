@@ -21,6 +21,8 @@ reads "Kailangan ko ng tubig" + TUBIG clip ◀─ OPUS-MT en→tl ◀─ Whisper
 - Everything runs on the phone: hand and body tracking, sign classifier, voice detection, speech-to-text, translation,
   text-to-speech. Nothing is sent anywhere, so it works in airplane mode.
 - Rear camera by default; **↺ Camera** switches to the front camera (e.g. a laptop webcam, or a signer alone).
+- The Blind person can run everything **without looking**: swipe to move between actions, double tap anywhere to
+  press, with spoken prompts and vibration patterns (see **For the Blind user**).
 
 ## Models and engines (full disclosure)
 
@@ -159,6 +161,39 @@ With **English**:
 The translators load in the background when English is chosen (134 MB each, a few seconds on a laptop).
 If a translation fails, the original English text is shown unchanged.
 
+## For the Blind user: gestures and haptics
+
+On a touch phone a transparent layer over the Home and Usap screens turns the whole screen into one big touch pad
+(⚙ → Wika → *Gestures para sa bulag*, on by default on touch screens). The focused action is read aloud and shown
+in a yellow bar at the bottom with an outline, so a sighted helper can follow along.
+
+| Gesture | Home | Usap |
+|---|---|---|
+| Swipe right / left | next / previous: Simulan → Turuan → Paano gamitin | next / previous: Magsalita → Ulitin → Wika → Camera → Paano gamitin → Bumalik |
+| Double tap anywhere | press the focused action | press it; on **Magsalita**: start talking, double tap again to stop early |
+| Swipe up | say the focused action | say the newest message again |
+| Swipe down | say the focused action | go one message back (signs are said as signed; your replies as "Sinabi mo: …") |
+| Single tap | presses the button under the finger (for sighted helpers); on an empty spot, says the focused action | same |
+
+Opening a screen starts on its main action (Simulan / Magsalita), so "double tap, talk" works straight away.
+While the mic is on, only double tap works, so no prompt is spoken into the recording.
+Keyboard: arrow keys and Enter do the same.
+
+| Vibration | Means |
+|---|---|
+| one short tick | moved to another action |
+| tick-pause-tick | end of the list, or nothing to repeat |
+| one firm buzz | mic on |
+| three quick pulses | mic off / your reply was transcribed |
+| long-short-long | **a sign arrived** (it is read out right after) |
+| one long buzz | "hindi kita" (unclear sign) or nothing heard |
+
+Android Chrome vibrates with `navigator.vibrate`. iPhone Safari has no vibration API; on iOS 18+ Twolay uses the
+system haptic of a hidden switch control, which only works right after a touch. So on iPhone swipes and taps buzz,
+but an arriving sign is announced by its tone and voice only. Vibration can be turned off in ⚙ → Wika.
+With VoiceOver or TalkBack on, the screen reader takes the gestures: turn *Gestures para sa bulag* off and use the
+screen reader on the normal buttons.
+
 ## Install on a phone (offline)
 
 Camera, mic and offline caching need HTTPS.
@@ -227,6 +262,10 @@ npm test
   Whisper (English) correctly hears four phrases Kokoro said.
 - `e2e-vad.mjs`: loud pink noise with nobody talking gives "Walang narinig" and sends nothing; "Ano ang sakit?" after
   1.5 s of silence is detected by Silero, trimmed to the speech, and transcribed to *sakit*.
+- `e2e-gestures.mjs`: on a 390×844 touch screen with `navigator.vibrate` recorded: swipes move the focus with the
+  right vibration (tick, edge), double tap opens Usap, double tap records "Ano ang sakit?" (swipes ignored while the
+  mic is on), swipe up repeats it, double tap switches the language and goes home, and a single tap still presses
+  the button under the finger.
 - `e2e-voice.mjs`: loads Kokoro from this origin only, speaks six Tagalog phrases, and saves them to
   `test/voice-samples/*.wav` so you can listen.
 
@@ -258,6 +297,8 @@ app/                    the whole app (static, no build step)
   index.html            CSP locks network to this origin
   js/main.js            screens, setup dialog, training import/export
   js/usap.js            the one-phone conversation screen (auto sign capture, mic, captions)
+  js/gestures.js        swipe / double-tap navigation for the Blind user
+  js/haptics.js         vibration patterns (Android vibrate, iOS switch haptic)
   js/hands.js           MediaPipe hands + pose, landmark + body-position features
   js/classifier.js      sign kNN with "hindi kita" rejection
   js/camera.js          camera (front/rear) + one-sign segmentation

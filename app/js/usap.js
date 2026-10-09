@@ -6,7 +6,7 @@
 import { UNKNOWN_TEXT, signText, signEnglish, textToSigns, customWords } from './signs.js';
 import { SignCam } from './camera.js';
 import { trimFrames } from './classifier.js';
-import { speak, speakEnglish, earcon, unlockAudio } from './voice.js';
+import { speak, speakEnglish, earcon, unlockAudio, stopSpeech } from './voice.js';
 import { loadWhisper, loadVAD, recordUtterance, transcribe } from './stt.js';
 import { loadKokoro } from './kokoro.js';
 import { loadTranslator, translate } from './translate.js';
@@ -31,30 +31,36 @@ export function initUsap(d) {
   cam = new SignCam($('#u-cam'), $('#u-overlay'), { facing: localStorage.getItem('twolay.facing') || 'environment' });
   cam.onFrame = onFrame;
   $('#u-mic').onclick = () => talk();
-  $('#u-flip').onclick = async () => {
-    const facing = cam.facing === 'environment' ? 'user' : 'environment';
-    localStorage.setItem('twolay.facing', facing);
-    try {
-      await cam.setFacing(facing);
-      deps.toast(facing === 'environment' ? 'Camera sa likod: itutok sa nagsa-sign' : 'Camera sa harap');
-    } catch (err) {
-      deps.toast(`Camera error: ${err.message}`, 4000);
-    }
-  };
+  $('#u-flip').onclick = () => flipCamera();
   $('#u-clipbox').addEventListener('click', () => {
     const v = $('#u-clip');
     if (v.src) { v.currentTime = 0; v.play(); }
   });
   for (const id of ['#lang', '#u-lang']) {
-    $(id).onchange = (e) => {
-      settings.lang = e.target.value === 'en' ? 'en' : 'fil';
-      localStorage.setItem('twolay.lang', settings.lang);
-      renderLang();
-      preloadTranslation();
-      deps.toast(settings.lang === 'en' ? 'English: translated offline (OPUS-MT)' : 'Filipino');
-    };
+    $(id).onchange = (e) => setLang(e.target.value);
   }
   renderLang();
+}
+
+export function setLang(lang) {
+  settings.lang = lang === 'en' ? 'en' : 'fil';
+  localStorage.setItem('twolay.lang', settings.lang);
+  renderLang();
+  preloadTranslation();
+  deps.toast(settings.lang === 'en' ? 'English: translated offline (OPUS-MT)' : 'Filipino');
+}
+
+/** Switch front/rear camera. Returns the new facing. */
+export async function flipCamera() {
+  const facing = cam.facing === 'environment' ? 'user' : 'environment';
+  localStorage.setItem('twolay.facing', facing);
+  try {
+    await cam.setFacing(facing);
+    deps.toast(facing === 'environment' ? 'Camera sa likod: itutok sa nagsa-sign' : 'Camera sa harap');
+  } catch (err) {
+    deps.toast(`Camera error: ${err.message}`, 4000);
+  }
+  return facing;
 }
 
 function renderLang() {
@@ -105,6 +111,24 @@ export function leaveUsap() {
 }
 
 export const usapOpen = () => st.active;
+export const isRecording = () => !!st.recording;
+
+/** Conversation so far, oldest first: { from: 'kamay' | 'boses', text, label?, english? }. */
+export const messages = [];
+
+/** Say a message from the history again (the newest by default). */
+export async function repeatMessage(m = messages.at(-1)) {
+  if (!m) return false;
+  if (m.from === 'kamay') {
+    if (m.english) await speakEnglish(m.english);
+    else await speak(m.text, m.label);
+  } else if (settings.lang === 'en' && m.english) {
+    await speakEnglish(`You said: ${m.english}`);
+  } else {
+    await speak(`Sinabi mo: ${m.text}`);
+  }
+  return true;
+}
 
 // ---------- signs (camera, always on) ----------
 function onFrame(frame) {
@@ -152,6 +176,9 @@ export async function announceSign(label) {
   const shown = en && en.toLowerCase() !== text.toLowerCase() ? `${text} — ${en}` : text;
   setCaption(shown, '🤟');
   addHistory({ from: 'kamay', text: shown });
+  messages.push({ from: 'kamay', text, label, english: en || undefined });
+  earcon('recv');
+  stopSpeech();
   return en ? speakEnglish(en) : speak(text, label);
 }
 
@@ -161,6 +188,7 @@ export async function talk() {
   if (st.recording) return st.recording.stop();
   if (st.busy || $('#u-mic').classList.contains('busy')) return;
   st.capture?.stop();
+  stopSpeech();
   const btn = $('#u-mic');
   earcon('start');
   btn.classList.add('live');
@@ -218,6 +246,7 @@ export async function announceSpeech(heard, { english = false, ms } = {}) {
   setCaption(text, '🗣');
   const notes = [english && text !== heard && `English: ${heard}`, signs.length && `sign: ${signs.join(', ')}`, ms && `${ms} ms`];
   addHistory({ from: 'boses', text, note: notes.filter(Boolean).join(' · ') });
+  messages.push({ from: 'boses', text, english: english ? heard : undefined });
   playSigns(signs);
   return { text, signs };
 }

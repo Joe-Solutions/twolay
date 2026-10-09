@@ -8,6 +8,8 @@ import { framesFromVideoFile } from './hands.js';
 import { store, shippedClip } from './store.js';
 import { unlockAudio, voiceInfo } from './voice.js';
 import { initUsap, enterUsap, leaveUsap, usapOpen, talk } from './usap.js';
+import { initGestures, enabled as gesturesOn, setEnabled as setGestures } from './gestures.js';
+import { hapticsOn, setHaptics, buzz } from './haptics.js';
 import { registerSW, offlineStatus, cacheAll } from './offline.js';
 
 const $ = (s) => document.querySelector(s);
@@ -92,12 +94,14 @@ function renderTrainGrid(own, starter) {
 initUsap({ classifier, retrain, clipURL, toast });
 const trainer = createTrainer({ classifier, retrain, clipURL, toast });
 const trainOpen = () => !$('#screen-train').hidden;
+const nav = initGestures({ openUsap, openTrain, openHome, toast });
 
 async function openUsap() {
   trainer.leave();
   showScreen('screen-usap');
   document.title = 'Twolay — Usap';
   history.replaceState(null, '', '?screen=usap');
+  nav.screen('usap');
   await enterUsap();
 }
 
@@ -107,6 +111,7 @@ async function openTrain() {
   showScreen('screen-train');
   document.title = 'Twolay — Turuan';
   history.replaceState(null, '', '?screen=train');
+  nav.screen('train');
   await trainer.enter();
 }
 
@@ -116,6 +121,7 @@ function openHome() {
   document.title = 'Twolay';
   history.replaceState(null, '', location.pathname);
   showScreen('home');
+  nav.screen('home');
 }
 
 $('#start-btn').onclick = () => openUsap();
@@ -187,6 +193,16 @@ $('#train-clear').onclick = async () => {
   if (!confirm('Burahin lahat ng training sample at clip sa phone na ito?')) return;
   indexedDB.deleteDatabase('twolay');
   location.reload();
+};
+$('#gestures-on').checked = gesturesOn();
+$('#gestures-on').onchange = (e) => {
+  setGestures(e.target.checked);
+  nav.sync();
+};
+$('#haptics-on').checked = hapticsOn();
+$('#haptics-on').onchange = (e) => {
+  setHaptics(e.target.checked);
+  buzz('select');
 };
 $('#use-starter').checked = state.useStarter;
 $('#use-starter').onchange = (e) => {
@@ -264,5 +280,8 @@ $('#offline-cache').onclick = async () => {
   const screen = params.get('screen') ?? params.get('role');
   if (screen === 'usap') await openUsap();
   else if (screen === 'train') await openTrain();
-  else showScreen('home');
+  else {
+    showScreen('home');
+    nav.screen('home');
+  }
 })();

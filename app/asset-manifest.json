@@ -1,5 +1,5 @@
 {
- "version": "10d2118634f1",
+ "version": "649947ebdb85",
  "files": [
   "./",
   "./audio/ENGINE.txt",
@@ -37,7 +37,9 @@
   "./js/camera.js",
   "./js/classifier.js",
   "./js/en-g2p.js",
+  "./js/gestures.js",
   "./js/hands.js",
+  "./js/haptics.js",
   "./js/kokoro.js",
   "./js/main.js",
   "./js/mt-worker.js",
