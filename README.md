@@ -35,7 +35,7 @@ reads "Kailangan ko ng tubig" + TUBIG clip ◀─ OPUS-MT en→tl ◀─ Whisper
 | Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog (English when the language is set to English) | 43 MB + 39 MB runtime | phone, Web Worker |
 | Translation English ↔ Filipino | **Helsinki-NLP OPUS-MT** `opus-mt-en-tl` and `opus-mt-tl-en` (Marian, ~75M params each, Apache-2.0), converted to ONNX and int8-quantized by `scripts/make_opus_mt.sh`, run with the Transformers.js `translation` pipeline in a worker. Used only when the language is set to **English**: speech is transcribed in English and translated to Filipino for the signer; signs are voiced in English (built-in signs use their fixed English, added words go through tl→en). About 50–400 ms per phrase on a laptop | 2 × 134 MB | phone, Web Worker |
 | Text → sign | Keyword table for Filipino + Taglish, one-typo tolerant (`app/js/signs.js`) | — | phone |
-| Text → voice | **Kokoro-82M v1.0** (hexgrad, Apache-2.0), int8 ONNX via Transformers.js in a worker, Spanish voice `ef_dora` for Filipino, American voice `af_heart` for English. English IPA comes from `app/models/en-lexicon.json` (10k words pre-phonemized with espeak-ng at build time); a sentence with an unknown word uses an on-device English system voice instead, if there is one. Kokoro has no Filipino voice, so `app/js/tl-g2p.js` turns Tagalog spelling into IPA (letter rules, penultimate stress, a short final-stress word list). About 1–3 s per phrase on a laptop. Until it has loaded, or if it fails: an on-device Filipino system voice (`speechSynthesis`, `localService` only), then 17 clips pre-rendered with **espeak-ng** in `app/audio/` | 92 MB + 1 MB + 0.25 MB | phone / laptop, wasm |
+| Text → voice | **Kokoro-82M v1.0** (hexgrad, Apache-2.0), int8 ONNX via Transformers.js in a worker, Spanish voice `ef_dora` for Filipino, American voice `af_heart` for English. English IPA comes from `app/models/en-lexicon.json` (10k words pre-phonemized with espeak-ng at build time); a sentence with an unknown word uses an on-device English system voice instead, if there is one. Kokoro has no Filipino voice, so `app/js/tl-g2p.js` turns Tagalog spelling into IPA (letter rules, penultimate stress, a short final-stress word list). About 1–3 s per phrase on a laptop, so the voice for every sign is generated once when Usap opens and saved on the phone (cache `voice-kokoro-v1`): a recognised sign is said at once, even before Kokoro has loaded. Until it has loaded, or if it fails: an on-device Filipino system voice (`speechSynthesis`, `localService` only), then 17 clips pre-rendered with **espeak-ng** in `app/audio/` | 92 MB + 1 MB + 0.25 MB | phone / laptop, wasm |
 | Sign playback | FSL-105 clips for the 11 starter signs (`app/clips/`), plus clips the team records | 0.5 MB | phone |
 
 Not used anywhere: cloud STT/TTS, sign-language APIs, generated avatars, API keys, uploads.
@@ -100,6 +100,21 @@ signs performed by adult Deaf FSL signers and reviewed by an FSL expert (CC BY 4
 re-frames the held-out takes (signer further away and off-center). GOOD AFTERNOON and GOOD EVENING were tried and left out: they share the
 "good" movement and were confused with each other (29% / 41% correct).
 The same signers appear in training and test folds, so expect lower accuracy on a new person.
+
+**Live camera, signs one after another** (`npm run eval:stream`, needs the FSL-105 clips from
+`scripts/fsl105/prepare.sh`): the held-out takes are played as one continuous stream and run through the Usap sign
+detector (`app/js/spotter.js`). It splits the stream by hand movement, so a short pause or dropping the hands ends a
+sign, and two signs run together are still read as two.
+
+| Stream | Correct | Wrong | "hindi kita" |
+|---|---|---|---|
+| Hands drop between signs, 15 fps | 92% | 9% | 1% |
+| Hands drop between signs, 10 fps | 90% | 9% | 4% |
+| Hands drop between signs, 7.5 fps (slow phone) | 92% | 6% | 3% |
+| Signs back to back, no pause, 10 fps | 32% | 6% | 1% |
+
+The previous capture (start after 4 hand frames, stop when the hands leave or after 3.5 s) got 72%, 53% and 7% on the
+10 fps, 7.5 fps and back-to-back streams.
 
 Each of these also has a playback clip of a Deaf signer in `app/clips/`. The pack can be turned off in
 ⚙ → Turuan. Rebuild it with `npm run build:pack`.
@@ -237,9 +252,11 @@ Two people, one phone (or one laptop). Train or import *tulong* first (see **Tra
 - **Start:** tap **Simulan**, allow the camera and the mic. The Blind person holds the phone, rear camera pointed at
   the Deaf signer, about 1–2 m away with the signer's **face and shoulders in the frame**.
   Expected: status "Nakatutok. Hinihintay ang sign…"; the button goes from "Naglo-load NN%" to **Magsalita**.
-- **Step 1:** the Deaf person signs **tulong**, then drops their hands. Nobody presses anything.
+- **Step 1:** the Deaf person signs **tulong**, then pauses or drops their hands. Nobody presses anything.
   Expected: the hand skeleton appears, status "Nagsa-sign…", then the big caption **🤟 Sign · Tulong**, status
-  "Tulong — NN%", and the phone says **"Tulong"** aloud. An unclear sign shows "hindi kita" with a low tone.
+  "Tulong — NN%", and the phone says **"Tulong"** aloud right away. An unclear sign shows "hindi kita" with a low tone.
+  Signs done one after another are said in order. ⚙ → **Network log** shows one line per sign with its timing
+  (e.g. `sign tulong 62% · 14 frames / 1200 ms · found +380 ms after it · voice +40 ms`).
 - **Step 2:** the Blind person presses **Magsalita** (or Space on a laptop) and says **"Ano ang sakit?"**, then
   stops talking. Expected: the button turns red ("Nakikinig…"), stops by itself after the speech, shows
   "Isinusulat…" for 1–3 s; then the caption **🗣 Boses · Ano ang sakit?** and the **SAKIT** clip plays for the signer.
@@ -298,7 +315,9 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
 - Body position needs the face and shoulders in view. If they aren't (camera too close), recognition falls back to
   hand shape and camera position only.
 - The camera watches one signer. Keep only the signer's hands in view: other people's hands in the frame can start a
-  capture and give "hindi kita".
+  sign and give "hindi kita".
+- Rest the hands briefly between signs. Signs chained with no pause at all are often missed (32% found in
+  `eval:stream`), and about 6–9% of signs come out as the wrong word.
 
 ## Layout
 
@@ -306,12 +325,13 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
 app/                    the whole app (static, no build step)
   index.html            CSP locks network to this origin
   js/main.js            screens, setup dialog, training import/export
-  js/usap.js            the one-phone conversation screen (auto sign capture, mic, captions)
+  js/usap.js            the one-phone conversation screen (camera signs, mic, captions)
+  js/spotter.js         finds signs in the continuous camera stream (movement segments, chained signs)
   js/gestures.js        swipe / double-tap navigation for the Blind user
   js/haptics.js         vibration patterns (Android vibrate, iOS switch haptic)
   js/hands.js           MediaPipe hands + pose, landmark + body-position features
   js/classifier.js      sign kNN with "hindi kita" rejection
-  js/camera.js          camera (front/rear) + one-sign segmentation
+  js/camera.js          camera (front/rear) + one-sign capture for Turuan
   js/stt.js             mic + Silero VAD (vad-worker.js) -> whisper-worker.js
   js/signs.js           labels + Filipino/Taglish phrase map, added words
   js/trainer.js         Turuan screen (record, test, add words)
