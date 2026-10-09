@@ -33,16 +33,29 @@ Not used anywhere: cloud STT/TTS, sign-language APIs, generated avatars, API key
 Content-Security-Policy (`connect-src 'self' blob: data:`) would block it anyway, and the in-app
 guard logs any blocked attempt in the Network log.
 
-## Setup (once, on the build laptop, with internet)
+## Run it
+
+Needs only **Python 3** and **Chrome or Edge**. All models are already in the repo, so nothing is downloaded at run time.
 
 ```bash
+git clone https://github.com/Joe-Solutions/twolay.git
 cd twolay
-npm run setup          # downloads MediaPipe, Whisper tiny, ONNX Runtime, QR libs into app/; renders app/audio
-npm start              # http://localhost:8000
+python3 scripts/serve.py   # or: npm start   ->  http://localhost:8000
 ```
 
-`brew install espeak-ng` first if you want `npm run setup` to render the voice clips (already done in this repo).
-After you change any file in `app/`, run `npm run manifest` so phones pick up the new version.
+Open `http://localhost:8000`, train the signs (next section), then follow **Demo script → A**.
+Wi-Fi can be off from this point on.
+
+### Re-downloading the models (optional)
+
+Only needed to upgrade a model or rebuild `app/vendor`, `app/models` or `app/audio` from scratch (needs internet and Node):
+
+```bash
+brew install espeak-ng   # for the spoken word clips in app/audio
+npm run setup            # MediaPipe, Whisper tiny, ONNX Runtime, QR libs -> app/; renders app/audio
+```
+
+After you change any file in `app/`, run `npm run manifest` so installed phones pick up the new version.
 
 ## Train the 12 signs
 
@@ -81,7 +94,7 @@ only contains the app and models; no user audio, video or text is ever sent.
 
 ### A. Single laptop (required fallback)
 
-- **Where:** laptop, Chrome or Edge, `http://localhost:8000` (`npm start`). Turn Wi-Fi **off** first.
+- **Where:** laptop, Chrome or Edge, `http://localhost:8000` (`python3 scripts/serve.py`). Turn Wi-Fi **off** first.
 - **Inputs:** tap **Demo mode: dalawang window sa isang laptop**. Allow the camera in the Kamay window and the
   mic in the Boses window. If the second window is blocked, allow pop-ups or open
   `http://localhost:8000/?role=boses&link=demo` yourself.
