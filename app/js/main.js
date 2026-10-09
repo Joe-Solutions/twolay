@@ -24,6 +24,7 @@ const state = {
   recording: null,
   auto: localStorage.getItem('twolay.auto') === '1',
   useStarter: localStorage.getItem('twolay.starter') !== '0',
+  audience: localStorage.getItem('twolay.audience') === '1',
   cooldownUntil: 0,
   handStreak: 0,
 };
@@ -103,10 +104,12 @@ function onMessage(msg) {
     addHistory({ from: 'kamay', text: msg.text });
     earcon('recv');
     setTimeout(() => speak(msg.text, msg.label), 250);
+    if (state.audience) playSigns([msg.label], 'b');
   } else if (msg.t === 'speech' && state.role === 'kamay') {
     setCaption(msg.text, 'Boses:');
     addHistory({ from: 'boses', text: msg.text, note: msg.signs?.length ? `sign: ${msg.signs.join(', ')}` : '' });
     playSigns(msg.signs || []);
+    if (state.audience) speak(msg.text);
   }
 }
 
@@ -194,21 +197,23 @@ async function clipURL(label) {
   return null;
 }
 
-let playToken = 0;
-async function playSigns(labels) {
-  const token = ++playToken;
-  const video = $('#k-clip');
-  const card = $('#k-card');
+const playToken = {};
+/** Play sign clips in the Kamay ('k') or, in audience mode, the Boses ('b') clip box. */
+async function playSigns(labels, at = 'k') {
+  const token = (playToken[at] = (playToken[at] ?? 0) + 1);
+  const video = $(`#${at}-clip`);
+  const card = $(`#${at}-card`);
+  const caption = $(`#${at}-clip-label`);
   if (!labels.length) {
     card.hidden = false;
     card.textContent = '—';
-    $('#k-clip-label').textContent = 'Walang katugmang sign';
+    caption.textContent = 'Walang katugmang sign';
     return;
   }
   for (const label of labels) {
-    if (token !== playToken) return;
+    if (token !== playToken[at]) return;
     const url = await clipURL(label);
-    $('#k-clip-label').textContent = signText(label).toUpperCase();
+    caption.textContent = signText(label).toUpperCase();
     card.textContent = signText(label).toUpperCase();
     if (!url) {
       card.hidden = false;
@@ -221,10 +226,12 @@ async function playSigns(labels) {
     await new Promise((r) => { video.onended = r; video.onerror = r; setTimeout(r, 6000); });
   }
 }
-$('#k-clip').parentElement.addEventListener('click', () => {
-  const v = $('#k-clip');
-  if (v.src) { v.currentTime = 0; v.play(); }
-});
+for (const id of ['#k-clip', '#b-clip']) {
+  $(id).parentElement.addEventListener('click', () => {
+    const v = $(id);
+    if (v.src) { v.currentTime = 0; v.play(); }
+  });
+}
 
 // ---------- training ----------
 function renderTrainGrid(own, starter) {
@@ -329,6 +336,16 @@ $('#use-starter').onchange = (e) => {
   localStorage.setItem('twolay.starter', state.useStarter ? '1' : '0');
   retrain();
 };
+function renderAudience() {
+  $('#b-clipbox').hidden = !state.audience;
+}
+$('#audience-mode').checked = state.audience;
+$('#audience-mode').onchange = (e) => {
+  state.audience = e.target.checked;
+  localStorage.setItem('twolay.audience', state.audience ? '1' : '0');
+  renderAudience();
+};
+renderAudience();
 $('#auto-mode').checked = state.auto;
 $('#auto-mode').onchange = (e) => {
   state.auto = e.target.checked;

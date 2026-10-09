@@ -67,6 +67,15 @@ console.log(`  ${await kamay.textContent('#train-eval')}`);
 await kamay.keyboard.press('Escape');
 await kamay.waitForFunction(() => document.querySelector('#k-cam').readyState >= 2, null, { timeout: 15000 });
 
+step('audience mode on in both windows');
+for (const pg of [kamay, boses]) {
+  await pg.evaluate(() => {
+    const box = document.querySelector('#audience-mode');
+    box.checked = true;
+    box.dispatchEvent(new Event('change'));
+  });
+}
+
 step('kamay signs (fake camera shows the tulong hand)');
 await kamay.waitForTimeout(1500);
 await kamay.click('#k-btn');
@@ -77,6 +86,9 @@ await boses.waitForTimeout(800);
 console.log(`  boses caption: ${await boses.textContent('#b-caption')}`);
 const spoke = await boses.evaluate(() => performance.getEntriesByType('resource').some((r) => r.name.includes('/audio/')));
 console.log(`  boses played local voice clip: ${spoke}`);
+const audienceClip = await boses.evaluate(() => !document.querySelector('#b-clipbox').hidden && document.querySelector('#b-clip-label').textContent);
+console.log(`  boses audience clip: ${audienceClip}`);
+if (audienceClip !== 'TULONG') throw new Error('audience mode: Boses should show the TULONG sign clip');
 
 step('boses: whisper load + speak "Ano ang sakit?"');
 await boses.waitForFunction(() => document.querySelector('#b-btn').textContent === 'Boses', null, { timeout: 120000 });

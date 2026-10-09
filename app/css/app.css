@@ -101,6 +101,7 @@ figcaption {
   background: var(--kamay); min-height: 2.2em;
 }
 #b-btn { background: var(--boses); }
+.audience-clip { align-self: center; width: min(100%, calc(28vh * 4 / 3)); }
 .big-btn.giant { flex: 1; min-height: 40vh; font-size: clamp(3rem, 16vw, 7rem); }
 .big-btn.live { background: var(--bad); animation: pulse 1s infinite alternate; }
 .big-btn.busy { background: var(--muted); }
