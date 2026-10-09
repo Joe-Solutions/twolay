@@ -6,10 +6,16 @@
 Person 1 (Deaf)                                     Person 2 (Blind)
 signs "tulong" ─▶ MediaPipe Hands ─▶ sign kNN ─▶ {"label":"tulong"} ─▶ local voice says "Tulong"
 sees "Ano ang sakit?" + sakit clip ◀─ {"text":..,"signs":["sakit"]} ◀─ Whisper tiny ◀─ says "Ano ang sakit?"
+
+English mode (Boses phone set to English, translated offline by OPUS-MT):
+signs "salamat" ─────────────────────────────────▶ {"label":"salamat"} ─▶ English voice says "Thank you"
+sees "Kailangan ko ng tubig" + tubig ◀─ OPUS-MT en→tl ◀─ Whisper (English) ◀─ says "I need water"
 ```
 
 - Two roles, one big button each: **Kamay** (hands, for the signer) and **Boses** (voice, for the speaker).
-- Everything runs on the phone: hand tracking, sign classifier, speech-to-text, text-to-speech.
+- Everything runs on the phone: hand tracking, sign classifier, speech-to-text, translation, text-to-speech.
+- The Boses phone can speak **Filipino or English**. In English, speech is translated to Filipino for the
+  signer, and signs are spoken back in clear English, which helps when Filipino pronunciation is hard to follow.
 - The only network traffic is the text message between the two phones, over a direct WebRTC DataChannel
   on the hotspot (no STUN, no TURN, no signalling server; pairing is done by scanning QR codes).
 - If the link drops, each phone keeps recognizing, captioning and playing back on its own.
@@ -21,7 +27,7 @@ sees "Ano ang sakit?" + sakit clip ◀─ {"text":..,"signs":["sakit"]} ◀─ W
 |---|---|---|---|
 | Hand tracking | MediaPipe Hand Landmarker `hand_landmarker.task` (float16) + MediaPipe Tasks Vision 1.1.0 wasm (SIMD and no-SIMD builds) | 7.8 MB + 25 MB | phone, wasm (GPU→CPU fallback) |
 | Sign → word | Twolay nearest-neighbour classifier over 12-frame landmark sequences, mirror-augmented, with a distance + ratio rejection (`app/js/classifier.js`). Ships pre-trained on 11 signs from the FSL-105 dataset (Deaf signers, CC BY 4.0); the team adds the rest in-app. | 3 MB pack + IndexedDB | phone, JS |
-| Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog | 43 MB + 39 MB runtime | phone, Web Worker |
+| Speech → text | OpenAI Whisper **tiny** multilingual, int8 ONNX (`onnx-community/whisper-tiny`), Transformers.js 4.3.1 + ONNX Runtime Web 1.31 wasm, language forced to Tagalog (English when the phone is set to English) | 43 MB + 39 MB runtime | phone, Web Worker |
 | Translation English ↔ Filipino | **Helsinki-NLP OPUS-MT** `opus-mt-en-tl` and `opus-mt-tl-en` (Marian, ~75M params each, Apache-2.0), converted to ONNX and int8-quantized by `scripts/make_opus_mt.sh`, run with the Transformers.js `translation` pipeline in a worker. Used only when a phone's language is set to **English**: Boses speech is transcribed in English and translated to Filipino for the signer; signs are voiced in English on Boses (built-in signs use their fixed English, added words go through tl→en). About 50–400 ms per phrase on a laptop | 2 × 134 MB | phone, Web Worker |
 | Text → sign | Keyword table for Filipino + Taglish, one-typo tolerant (`app/js/signs.js`) | — | phone |
 | Text → voice | **Kokoro-82M v1.0** (hexgrad, Apache-2.0), int8 ONNX via Transformers.js in a worker, Spanish voice `ef_dora` for Filipino, American voice `af_heart` for English. English IPA comes from `app/models/en-lexicon.json` (10k words pre-phonemized with espeak-ng at build time); a sentence with an unknown word uses an on-device English system voice instead, if there is one. Kokoro has no Filipino voice, so `app/js/tl-g2p.js` turns Tagalog spelling into IPA (letter rules, penultimate stress, a short final-stress word list). About 1–3 s per phrase on a laptop. Until it has loaded, or if it fails: an on-device Filipino system voice (`speechSynthesis`, `localService` only), then 17 clips pre-rendered with **espeak-ng** in `app/audio/` | 92 MB + 1 MB + 0.25 MB | phone / laptop, wasm |
@@ -132,14 +138,31 @@ The ⚙ → Turuan tab shows samples per sign, whether a clip exists, and a leav
 Unknown or unclear signs show **"hindi kita"** locally and are not sent. Two checks reject them: the distance
 must be within the threshold learned from the training data, and the best sign must clearly beat the runner-up.
 
+## Language: Filipino or English
+
+Each device has its own setting: the **Wika / Language** menu on the Boses screen, or ⚙ → Link →
+*Wika ng boses sa phone na ito*. Default is **Filipino** (nothing is translated).
+
+With **English** on the Boses phone:
+
+| Direction | What happens |
+|---|---|
+| Boses speaks | Whisper transcribes in English → OPUS-MT en→tl translates → Kamay shows the Filipino text and the matching sign. Kamay's history keeps the English original; Boses shows `English → Filipino`. Sign lookup checks both texts, so "water" still finds *tubig* if the translation drifts. |
+| Kamay signs | Boses shows `Salamat — thank you` and says the English with Kokoro's `af_heart` voice. Built-in signs use a fixed English meaning; added words go through OPUS-MT tl→en. |
+
+A Kamay device set to English also speaks its own signs in English when no Boses device received them.
+The translators load in the background when English is chosen (134 MB each, a few seconds on a laptop).
+If a translation fails, the original English text is sent unchanged.
+
 ## Install on two phones (offline)
 
 Camera, mic and offline caching need HTTPS.
 
 **Easiest: the hosted copy.** Every push to `main` publishes `app/` to
 **https://joe-solutions.github.io/twolay/** (`.github/workflows/pages.yml`). On each phone, with internet once:
-open the link → ⚙ → **Offline** → *I-save ang buong app para offline* (about 220 MB) → wait for **Handa offline ✓** →
+open the link → ⚙ → **Offline** → *I-save ang buong app para offline* (about 500 MB, use Wi-Fi) → wait for **Handa offline ✓** →
 Add to Home Screen (iPhone: Share; Android Chrome: menu → Install app). After that it runs with Wi-Fi and data off.
+After a new version is published, open the app online once and save for offline again.
 The site only serves the app and model files; nothing the phones see or hear is uploaded.
 
 **Without internet: serve from the laptop.** Use a trusted local cert:
@@ -199,13 +222,31 @@ so a signer alone with a laptop or phone still gets a voice.
   To reconnect, pair again.
 - **Send back:** the Network log screenshot from both phones.
 
+### C. Phone as Boses (English) + laptop as Kamay
+
+- **Where:** both open **https://joe-solutions.github.io/twolay/** (or the laptop's `npm run start:lan` URL).
+  Laptop in Chrome, phone in Chrome (Android) or Safari (iPhone), both on the **same Wi-Fi**. If they can't reach
+  each other (some routers isolate clients), join the laptop to the phone's hotspot instead.
+- **Laptop:** tap **Kamay**, allow the camera, wait for "Handa. Pindutin ang Kamay at mag-sign."
+- **Phone:** tap **Boses**, allow the mic, set **Wika / Language** → **English (isasalin / translated)**, wait until
+  the button reads **Boses** (first load downloads about 400 MB; use Wi-Fi).
+- **Pair:** laptop ⚙ → Link → *Gumawa ng pairing code*; phone ⚙ → Link → *I-scan ang code ni A* (point at the laptop
+  screen); laptop *I-scan ang sagot ni B* (hold the phone's QR to the webcam). If the webcam won't read it, use
+  *Walang camera? I-paste ang code* on both. Expected: **Konektado (phone)** on both.
+- **Step 1:** phone presses **Boses** and says **"I need water"**. Expected: phone shows
+  `I need water → Kailangan ko ng tubig`; laptop shows `Kailangan ko ng tubig`, the **TUBIG** card, and
+  `English: I need water` in its history. "Thank you" arrives as **Salamat**.
+- **Step 2:** laptop presses **Kamay** and signs **Salamat** (FSL-105 starter sign). Expected: phone shows
+  `Salamat — thank you` and says "thank you" in an English voice.
+- **Send back:** whether both showed Konektado, and a screenshot of the phone after each step.
+
 Bluetooth: browsers cannot open raw Bluetooth sockets, but **Bluetooth tethering** (personal hotspot over
 Bluetooth) gives the phones an IP link, and the same WebRTC pairing works over it.
 
 ## Automated tests
 
 ```bash
-npm run test:setup   # once: Playwright + Chromium + synthetic hand clips + espeak "Ano ang sakit?"
+npm run test:setup   # once: Playwright + Chromium + synthetic hand clips + espeak "Ano ang sakit?" / "I need water, please."
 npm test
 ```
 
@@ -239,7 +280,9 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
   downloaded) is used automatically instead.
 - OPUS-MT is a small model. Short phrases translate well ("Where is the bathroom?" → "Nasaan ang banyo?"), but
   single Filipino words without context can come out odd ("kumusta" → "what"), so built-in signs keep a fixed
-  English meaning and the translator is only used for added words and free speech. Full offline save is now about 500 MB.
+  English meaning and the translator is only used for added words and free speech. Full offline save is about 500 MB.
+- The English voice only knows the ~10k words in `en-lexicon.json`. A sentence with any other word (names, rare words)
+  uses the phone's offline English system voice; with none installed, Kokoro guesses that word from its spelling.
 - Pairing must be redone after the link drops, by scanning the QR codes again.
 
 ## Layout
@@ -252,15 +295,23 @@ app/                    the whole app (static, no build step)
   js/classifier.js      sign kNN with "hindi kita" rejection
   js/camera.js          camera + one-sign segmentation
   js/stt.js             mic + VAD -> whisper-worker.js
-  js/signs.js           labels + Filipino/Taglish phrase map
-  js/voice.js           local TTS + earcons
+  js/signs.js           labels + Filipino/Taglish phrase map, added words
+  js/trainer.js         Turuan screen (record, test, add words)
+  js/store.js           IndexedDB samples, clips, packs
+  js/voice.js           speech output order + earcons
+  js/kokoro.js          Kokoro voice -> tts-worker.js
+  js/tl-g2p.js          Tagalog spelling -> IPA
+  js/en-g2p.js          English words -> IPA (models/en-lexicon.json)
   js/translate.js       English <-> Filipino -> mt-worker.js (OPUS-MT)
-  js/en-g2p.js          English words -> IPA for Kokoro (models/en-lexicon.json)
   js/link.js            DemoLink (BroadcastChannel), P2PLink (WebRTC, QR pairing)
   js/netlog.js          network log + offline guard
   js/offline.js, sw.js  save-for-offline cache
-  vendor/, models/      vendored runtimes and models (from scripts/vendor.sh)
+  vendor/               MediaPipe, Transformers.js, ONNX Runtime, QR libs (from scripts/vendor.sh)
+  models/               hand landmarker, Whisper tiny, Kokoro + voices, OPUS-MT en-tl / tl-en, en-lexicon.json
+  packs/fsl105.json     starter training pack; clips/ its playback clips
   audio/                espeak-ng word clips
-scripts/                vendor.sh, make_voice.sh, make_opus_mt.sh, make_en_lexicon.py, build_manifest.py, serve.py, make_cert.sh
+scripts/                vendor.sh, make_voice.sh, make_opus_mt.sh + opus_mt_quantize.py, make_en_lexicon.py,
+                        build_manifest.py, serve.py, make_cert.sh, fsl105/
 test/                   Playwright end-to-end tests
+.github/workflows/      pages.yml publishes app/ to GitHub Pages on push to main
 ```
