@@ -104,6 +104,11 @@ All training data stays on the device (IndexedDB). Two ways to train; both feed 
    - **Subukan** signs once without saving and shows what Twolay recognises.
    - After 5 takes it moves on to the next unfinished sign. The first take of a sign without a clip becomes
      its playback clip on the Kamay screen.
+   - **Your own words:** type a word under the chips (e.g. `gutom`) and tap **＋ Idagdag**. It becomes a new
+     sign (dashed chip) to record like the others. On the Boses side it triggers only when that exact word or
+     phrase is heard, and it wins over a built-in synonym (`gutom` → your sign, not *pagkain*).
+     **Tanggalin ang salitang ito** removes the word and its takes. Built-in signs can't be removed, only their takes.
+     The Kamay device sends its word list to the Boses device whenever they connect, and packs carry the words too.
 2. **Import the team's clips:** ⚙ → Turuan → *I-import ang video clips*. File names start with the sign:
    `tulong_01.mp4`, `sakit-2.mov`, `salamat 3.mp4`.
 

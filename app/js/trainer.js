@@ -1,5 +1,5 @@
 // "Turuan" screen: a signer teaches Twolay one FSL sign at a time from the camera.
-import { SIGNS, signText } from './signs.js';
+import { SIGNS, signText, isCustom, addWord, removeWord } from './signs.js';
 import { SignCam } from './camera.js';
 import { trimFrames } from './classifier.js';
 import { store } from './store.js';
@@ -10,8 +10,8 @@ const COUNTDOWN = 3;
 
 const $ = (s) => document.querySelector(s);
 
-/** deps: { classifier, retrain(): {own, starter}, clipURL(label), toast(text, ms) } */
-export function createTrainer({ classifier, retrain, clipURL, toast }) {
+/** deps: { classifier, retrain(): {own, starter}, clipURL(label), toast(text, ms), onWordsChanged() } */
+export function createTrainer({ classifier, retrain, clipURL, toast, onWordsChanged }) {
   const cam = new SignCam($('#t-cam'), $('#t-overlay'));
   let label = SIGNS[0].label;
   let counts = {};
@@ -39,7 +39,7 @@ export function createTrainer({ classifier, retrain, clipURL, toast }) {
       const b = document.createElement('button');
       const n = counts[l] || 0;
       const m = starterCounts[l] || 0;
-      b.className = `chip ${l === label ? 'on' : ''} ${total(l) >= TAKES_TARGET ? 'done' : n ? 'some' : ''}`;
+      b.className = `chip ${l === label ? 'on' : ''} ${total(l) >= TAKES_TARGET ? 'done' : n ? 'some' : ''} ${isCustom(l) ? 'custom' : ''}`;
       b.innerHTML = `<b>${text}</b><small>${n}/${TAKES_TARGET}${m ? ` · +${m} FSL-105` : ''}</small>`;
       b.onclick = () => select(l);
       box.append(b);
@@ -54,11 +54,12 @@ export function createTrainer({ classifier, retrain, clipURL, toast }) {
   }
 
   async function select(l) {
-    label = l;
+    const sign = SIGNS.find((s) => s.label === l) ?? SIGNS[0];
+    label = l = sign.label;
     lastSampleId = null;
-    const sign = SIGNS.find((s) => s.label === l);
     $('#t-word').textContent = sign.text.toUpperCase();
-    $('#t-en').textContent = sign.en;
+    $('#t-en').textContent = sign.en || 'sariling salita';
+    $('#t-remove-word').hidden = !isCustom(l);
     renderChips();
     renderProgress();
     await showReference();
@@ -180,6 +181,34 @@ export function createTrainer({ classifier, retrain, clipURL, toast }) {
     setStatus('Nabura');
   }
 
+  async function add(e) {
+    e.preventDefault();
+    const input = $('#t-new-word');
+    try {
+      const l = addWord(input.value);
+      input.value = '';
+      onWordsChanged?.();
+      await refresh();
+      await select(l);
+      setStatus(`Naidagdag ang "${signText(l)}". I-record ang 5 take.`);
+    } catch (err) {
+      toast(err.message, 3000);
+    }
+  }
+
+  async function remove() {
+    if (!isCustom(label)) return;
+    if (!confirm(`Tanggalin ang salitang "${signText(label)}" at lahat ng take nito?`)) return;
+    const gone = label;
+    await store.clearLabel(gone);
+    await store.deleteClip(gone);
+    removeWord(gone);
+    onWordsChanged?.();
+    await refresh();
+    await select(SIGNS[0].label);
+    setStatus(`Natanggal ang "${gone}"`);
+  }
+
   function next() {
     const i = SIGNS.findIndex((s) => s.label === label);
     select(SIGNS[(i + 1) % SIGNS.length].label);
@@ -190,6 +219,8 @@ export function createTrainer({ classifier, retrain, clipURL, toast }) {
   $('#t-undo').onclick = undo;
   $('#t-next').onclick = next;
   $('#t-clear-sign').onclick = clearSign;
+  $('#t-remove-word').onclick = remove;
+  $('#t-add').onsubmit = add;
 
   return {
     async enter() {

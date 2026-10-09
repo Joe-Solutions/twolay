@@ -130,6 +130,12 @@ figcaption {
 .chip.done b::after { content: ' ✓'; color: var(--ok); }
 .chip.on { background: var(--accent); color: #111; }
 .chip.on small { color: #333; }
+.chip.custom { border-style: dashed; }
+.t-add { margin: 0; }
+.t-add input {
+  flex: 1; min-width: 12em; font: inherit; color: inherit; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 12px; padding: .7em .9em;
+}
 
 .history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column-reverse; gap: .3em; font-size: 1.15em; }
 .history li { padding: .4em .7em; border-radius: 10px; background: var(--panel); }

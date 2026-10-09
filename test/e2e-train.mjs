@@ -54,7 +54,8 @@ if (await page.isHidden('#t-ref-card')) await fail('expected "Wala pang halimbaw
 console.log(`  progress: ${await page.textContent('#t-progress')}`);
 
 async function take(n) {
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
+    if (i) await page.waitForTimeout(900 * i);   // shift the phase of the 4 s fake-camera loop
     await page.evaluate(() => (document.querySelector('#t-status').textContent = ''));
     await page.click('#t-record');
     await page.waitForFunction(() => /take \d|Walang/.test(document.querySelector('#t-status').textContent), null, { timeout: 30000 });
@@ -78,7 +79,8 @@ await take(2);
 await take(3);
 // The fake camera loops 1.5 s of hand per 4 s, so a capture can start at the tail end; retry.
 let result = '';
-for (let i = 0; i < 3 && !result.includes('Nakita'); i++) {
+for (let i = 0; i < 4 && !result.includes('Nakita'); i++) {
+  if (i) await page.waitForTimeout(900 * i);
   await page.evaluate(() => (document.querySelector('#t-status').textContent = ''));
   await page.click('#t-test');
   await page.waitForFunction(() => /Nakita|hindi kita|Walang kamay/.test(document.querySelector('#t-status').textContent), null, { timeout: 30000 });
@@ -86,6 +88,29 @@ for (let i = 0; i < 3 && !result.includes('Nakita'); i++) {
   console.log(`  ${result}`);
 }
 if (!result.includes('Tulong')) await fail('test should recognize tulong');
+
+step('add a new word "gutom", record it, map speech to it, remove it');
+await page.fill('#t-new-word', 'Gutom');
+await page.click('#t-add button');
+await page.waitForFunction(() => document.querySelector('#t-word').textContent === 'GUTOM');
+const chipCount = await page.$$eval('#t-chips .chip', (els) => els.length);
+if (chipCount !== 13) await fail(`expected 13 chips after adding a word, got ${chipCount}`);
+if (await page.isHidden('#t-remove-word')) await fail('remove button should show for an added word');
+await take(1);
+const mapped = await page.evaluate(async () => (await import('./js/signs.js')).textToSigns('Gutom na ako, pahingi ng tubig'));
+console.log(`  "Gutom na ako, pahingi ng tubig" -> ${JSON.stringify(mapped)}`);
+if (JSON.stringify(mapped) !== '["gutom","tubig"]') await fail('added word should win over the built-in synonym');
+await page.fill('#t-new-word', 'tubig');
+await page.click('#t-add button');
+await page.waitForFunction(() => document.querySelector('#toast').textContent.includes('Nasa listahan na'));
+console.log(`  duplicate rejected: ${await page.textContent('#toast')}`);
+page.once('dialog', (d) => d.accept());
+await page.click('#t-chips .chip:has-text("Gutom")');
+await page.click('#t-remove-word');
+await page.waitForFunction(() => document.querySelectorAll('#t-chips .chip').length === 12);
+const after = await page.evaluate(async () => (await import('./js/signs.js')).textToSigns('gutom'));
+console.log(`  after removal "gutom" -> ${JSON.stringify(after)}`);
+if (JSON.stringify(after) !== '["pagkain"]') await fail('removed word should fall back to built-in mapping');
 
 step('chip shows count; Home stops the camera');
 const chip = await page.textContent('#t-chips .chip:has-text("Tulong") small');

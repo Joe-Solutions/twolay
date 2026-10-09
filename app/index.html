@@ -83,8 +83,13 @@
         <button id="t-undo" class="secondary" disabled>Bawiin ang huling take</button>
         <button id="t-next" class="secondary">Susunod na sign ›</button>
         <button id="t-clear-sign" class="danger">Burahin ang takes nito</button>
+        <button id="t-remove-word" class="danger" hidden>Tanggalin ang salitang ito</button>
       </div>
       <div id="t-chips" class="chips" aria-label="Pumili ng sign"></div>
+      <form id="t-add" class="row t-add">
+        <input id="t-new-word" maxlength="40" autocomplete="off" placeholder="Bagong salita, hal. gutom" aria-label="Bagong salita">
+        <button type="submit">＋ Idagdag</button>
+      </form>
     </section>
 
     <section id="screen-boses" class="screen" hidden>
