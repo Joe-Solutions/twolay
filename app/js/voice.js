@@ -4,7 +4,7 @@
 //   3. pre-rendered espeak-ng / Piper clip shipped in app/audio/<label>.wav
 //   4. any other on-device system voice
 import { LABELS } from './signs.js';
-import { kokoroReady, synthesize } from './kokoro.js';
+import { kokoroReady, synthesize, savedVoice } from './kokoro.js';
 import { buzz } from './haptics.js';
 
 const audioBase = new URL('../audio/', import.meta.url);
@@ -22,6 +22,8 @@ const filipinoVoice = () => voices.find((v) => /^(fil|tl)\b/i.test(v.lang) || /f
 const englishVoice = () => voices.find((v) => /^en\b/i.test(v.lang));
 
 export let lastEngine = 'none';
+/** performance.now() when the last voice output actually started playing. */
+export let voiceStartedAt = 0;
 
 export function voiceInfo() {
   const v = filipinoVoice();
@@ -45,6 +47,7 @@ async function playKokoro(text, opts, pre) {
     await new Promise((res) => {
       src.onended = res;
       src.start();
+      voiceStartedAt = performance.now();
     });
     return true;
   } catch {
@@ -60,6 +63,7 @@ function speakSystem(text, voice) {
     u.voice = voice;
     u.lang = voice.lang;
     u.rate = 0.95;
+    u.onstart = () => { voiceStartedAt = performance.now(); };
     u.onend = () => res(true);
     u.onerror = () => res(false);
     speechSynthesis.speak(u);
@@ -69,6 +73,7 @@ function speakSystem(text, voice) {
 function playClip(label) {
   return new Promise((res) => {
     const a = new Audio(new URL(`${label}.wav`, audioBase).href);
+    a.onplaying = () => { voiceStartedAt = performance.now(); };
     a.onended = () => res(true);
     a.onerror = () => res(false);
     a.play().catch(() => res(false));
@@ -78,6 +83,8 @@ function playClip(label) {
 /** Speak English with a native English voice; Kokoro only when every word is in the lexicon. */
 export async function speakEnglish(text) {
   lastEngine = await (async () => {
+    const saved = await savedVoice(text, { lang: 'en' });
+    if (saved && (await playKokoro(text, null, saved))) return 'kokoro-en';
     if (await playKokoro(text, { lang: 'en', strict: true })) return 'kokoro-en';
     if (await speakSystem(text, englishVoice())) return 'system-en';
     if (await playKokoro(text, { lang: 'en' })) return 'kokoro-en-guess';
@@ -89,6 +96,8 @@ export async function speakEnglish(text) {
 /** Speak a sign label (e.g. 'tulong') or free text. */
 export async function speak(text, label) {
   lastEngine = await (async () => {
+    const saved = await savedVoice(text);
+    if (saved && (await playKokoro(text, null, saved))) return 'kokoro';
     if (await playKokoro(text)) return 'kokoro';
     const fil = filipinoVoice();
     if (fil && (await speakSystem(text, fil))) return 'system';
