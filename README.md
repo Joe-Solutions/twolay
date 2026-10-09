@@ -316,6 +316,8 @@ The synthetic clips are still photos sliding across the frame. They prove the pi
   hand shape and camera position only.
 - The camera watches one signer. Keep only the signer's hands in view: other people's hands in the frame can start a
   sign and give "hindi kita".
+- Memory: the Usap screen holds hand tracking, Silero, Whisper and Kokoro at once, about 1.3 GB in Safari's engine
+  (WebKit on a Mac). Older iPhones may still close the tab ("A problem repeatedly occurred"); close other tabs and apps first.
 - Rest the hands briefly between signs. Signs chained with no pause at all are often missed (32% found in
   `eval:stream`), and about 6–9% of signs come out as the wrong word.
 
