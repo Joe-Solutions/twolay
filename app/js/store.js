@@ -49,7 +49,7 @@ export const store = {
 
   async importPack(file) {
     const pack = JSON.parse(await file.text());
-    if (pack.twolayPack !== 1) throw new Error('hindi Twolay pack ang file');
+    if ((pack.twolayPack ?? pack.tulayPack ?? pack.kamayPack) !== 1) throw new Error('hindi Twolay pack ang file');
     for (const s of pack.samples) await store.addSample(s.label, s.frames, s.source || 'pack');
     for (const [label, url] of Object.entries(pack.clips || {})) {
       await store.putClip(label, await (await fetch(url)).blob());
