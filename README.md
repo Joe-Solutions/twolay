@@ -101,6 +101,8 @@ All training data stays on the device (IndexedDB). Two ways to train; both feed 
    - Tap **I-record** (or Space). After the 3-2-1 beeps, sign once, then drop your hands. That's one take.
    - If a take looks like a different sign, the status line warns you ("kahawig ito ng …").
    - **Bawiin ang huling take** removes a bad take. **Burahin ang takes nito** clears that sign.
+   - **Burahin ang halimbawa** deletes the example clip (your saved one, and hides a shipped FSL-105 one); your
+     next take becomes the new example. **Ibalik ang FSL-105 halimbawa** brings the shipped clip back.
    - **Subukan** signs once without saving and shows what Twolay recognises.
    - After 5 takes it moves on to the next unfinished sign. The first take of a sign without a clip becomes
      its playback clip on the Kamay screen.

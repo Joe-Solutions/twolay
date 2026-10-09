@@ -6,7 +6,7 @@ import { createTrainer, TAKES_TARGET } from './trainer.js';
 import { SignClassifier, trimFrames } from './classifier.js';
 import { SignCam } from './camera.js';
 import { framesFromVideoFile } from './hands.js';
-import { store } from './store.js';
+import { store, shippedClip } from './store.js';
 import { DemoLink, P2PLink } from './link.js';
 import { speak, earcon, unlockAudio, voiceInfo } from './voice.js';
 import { loadWhisper, recordUtterance, transcribe } from './stt.js';
@@ -201,6 +201,7 @@ async function kamayCapture() {
 async function clipURL(label) {
   const saved = await store.clip(label);
   if (saved) return URL.createObjectURL(saved.blob);
+  if (shippedClip.hidden(label)) return null;
   for (const ext of ['mp4', 'webm']) {
     const url = new URL(`../clips/${label}.${ext}`, import.meta.url);
     const head = await fetch(url, { method: 'HEAD' }).catch(() => null);

@@ -112,6 +112,22 @@ const after = await page.evaluate(async () => (await import('./js/signs.js')).te
 console.log(`  after removal "gutom" -> ${JSON.stringify(after)}`);
 if (JSON.stringify(after) !== '["pagkain"]') await fail('removed word should fall back to built-in mapping');
 
+step('clear and restore the example clip');
+// Tulong's example is the first take; Salamat's is the shipped FSL-105 clip.
+for (const [sign, shipped] of [['Tulong', false], ['Salamat', true]]) {
+  await page.click(`#t-chips .chip:has-text("${sign}")`);
+  await page.waitForFunction(() => !document.querySelector('#t-clear-ref').hidden, null, { timeout: 10000 });
+  page.once('dialog', (d) => d.accept());
+  await page.click('#t-clear-ref');
+  await page.waitForFunction(() => !document.querySelector('#t-ref-card').hidden);
+  const restore = await page.isVisible('#t-restore-ref');
+  console.log(`  ${sign}: example cleared, restore button ${restore ? 'shown' : 'hidden'}`);
+  if (restore !== shipped) await fail(`${sign}: restore button should be ${shipped ? 'shown' : 'hidden'}`);
+}
+await page.click('#t-restore-ref');
+await page.waitForFunction(() => document.querySelector('#t-ref-card').hidden);
+console.log('  Salamat: FSL-105 example restored');
+
 step('chip shows count; Home stops the camera');
 const chip = await page.textContent('#t-chips .chip:has-text("Tulong") small');
 console.log(`  Tulong chip: ${chip}`);
