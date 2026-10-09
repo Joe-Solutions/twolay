@@ -1,7 +1,7 @@
 import { netlog, installGuard } from './netlog.js';
 installGuard();
 
-import { SIGNS, LABELS, UNKNOWN_TEXT, signText, textToSigns } from './signs.js';
+import { SIGNS, LABELS, UNKNOWN_TEXT, signText, textToSigns, customWords, setCustomWords } from './signs.js';
 import { createTrainer, TAKES_TARGET } from './trainer.js';
 import { SignClassifier, trimFrames } from './classifier.js';
 import { SignCam } from './camera.js';
@@ -72,6 +72,7 @@ function useLink(link) {
   state.link = link;
   link.setRole(state.role);
   link.addEventListener('status', renderLink);
+  link.addEventListener('status', () => link.status === 'connected' && shareWords());
   link.addEventListener('message', (e) => onMessage(e.detail));
   renderLink();
 }
@@ -97,8 +98,19 @@ function send(msg) {
   return !!state.link?.send({ ...msg, id: `${Date.now()}-${++msgId}`, from: state.role });
 }
 
+/** The signer's device owns the word list; the speaker's device follows it so speech maps to the same signs. */
+function shareWords() {
+  if (state.role !== 'boses') send({ t: 'words', words: customWords() });
+}
+
 function onMessage(msg) {
   if (msg.t === 'ping') return toast('Natanggap ang test mula sa kabila ✓');
+  if (msg.t === 'words') {
+    if (state.role === 'boses' && Array.isArray(msg.words) && setCustomWords(msg.words)) {
+      toast(`Mga salita mula sa Kamay: ${msg.words.join(', ') || 'wala'}`, 3000);
+    }
+    return;
+  }
   if (msg.t === 'sign' && state.role === 'boses') {
     setCaption(msg.text, 'Kamay:');
     addHistory({ from: 'kamay', text: msg.text });
@@ -148,7 +160,7 @@ function loadStarter() {
 async function retrain() {
   const own = await store.samples();
   const starter = state.useStarter ? await loadStarter() : { samples: [], clips: new Set() };
-  classifier.fit([...own, ...starter.samples]);
+  classifier.fit([...own, ...starter.samples].filter((s) => LABELS.includes(s.label)));
   renderTrainGrid(own, starter);
   return { own, starter };
 }
@@ -258,7 +270,7 @@ function renderTrainGrid(own, starter) {
   });
 }
 
-const trainer = createTrainer({ classifier, retrain, clipURL, toast });
+const trainer = createTrainer({ classifier, retrain, clipURL, toast, onWordsChanged: shareWords });
 
 async function enterTrain() {
   unlockAudio();
@@ -320,7 +332,8 @@ $('#pack-import').onchange = async (e) => {
   try {
     const r = await store.importPack(file);
     await retrain();
-    toast(`Pack: ${r.samples} sample, ${r.clips} clip`);
+    toast(`Pack: ${r.samples} sample, ${r.clips} clip${r.words ? `, ${r.words} salita` : ''}`);
+    shareWords();
   } catch (err) {
     toast(err.message, 4000);
   }
