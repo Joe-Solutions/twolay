@@ -3,32 +3,33 @@
 //     shown and spoken aloud with the offline voice;
 //   - the big button records the Blind person's speech; the Deaf person reads it on the same screen
 //     and sees the matching sign clips.
-import { UNKNOWN_TEXT, signText, signEnglish, textToSigns, customWords } from './signs.js';
+import { UNKNOWN_TEXT, SIGNS, signText, signEnglish, textToSigns, customWords } from './signs.js';
 import { SignCam } from './camera.js';
-import { trimFrames } from './classifier.js';
 import { speak, speakEnglish, earcon, unlockAudio, stopSpeech } from './voice.js';
+import * as voice from './voice.js';
+import { SignSpotter } from './spotter.js';
 import { loadWhisper, loadVAD, recordUtterance, transcribe } from './stt.js';
-import { loadKokoro } from './kokoro.js';
+import { loadKokoro, saveVoices } from './kokoro.js';
 import { loadTranslator, translate } from './translate.js';
 import { netlog } from './netlog.js';
 
 const $ = (s) => document.querySelector(s);
-const HAND_STREAK = 4;        // frames with hands before a sign capture starts
-const COOLDOWN_MS = 1200;     // after a sign, so the hands dropping doesn't start another
 
 export const settings = {
   // Spoken language: 'fil', or 'en' (English speech is translated for the signer, signs are spoken in English).
   lang: localStorage.getItem('twolay.lang') === 'en' ? 'en' : 'fil',
 };
 
-const st = { active: false, capture: null, recording: null, busy: false, streak: 0, cooldownUntil: 0 };
+const st = { active: false, recording: null, busy: false, voiceQueue: Promise.resolve() };
 let deps;
 let cam;
+let spotter;
 
 /** deps: { classifier, retrain(), clipURL(label), toast(text, ms) } */
 export function initUsap(d) {
   deps = d;
   cam = new SignCam($('#u-cam'), $('#u-overlay'), { facing: localStorage.getItem('twolay.facing') || 'environment' });
+  spotter = new SignSpotter(d.classifier, { onSign, onUnknown, onActivity });
   cam.onFrame = onFrame;
   $('#u-mic').onclick = () => talk();
   $('#u-flip').onclick = () => flipCamera();
@@ -47,6 +48,7 @@ export function setLang(lang) {
   localStorage.setItem('twolay.lang', settings.lang);
   renderLang();
   preloadTranslation();
+  if (st.active) loadKokoro().then(saveSignVoices).catch(() => {});
   deps.toast(settings.lang === 'en' ? 'English: translated offline (OPUS-MT)' : 'Filipino');
 }
 
@@ -88,7 +90,7 @@ export async function enterUsap() {
     $('#u-status').textContent = `Camera error: ${err.message}`;
   }
   loadVAD().catch(() => {});
-  loadKokoro().catch(() => {});
+  loadKokoro().then(saveSignVoices).catch(() => {});
   preloadTranslation();
   const mic = $('#u-mic');
   mic.classList.add('busy');
@@ -103,10 +105,18 @@ export async function enterUsap() {
   mic.textContent = 'Magsalita';
 }
 
+/** Pre-generate the voice for every sign (trained ones first), so a recognised sign is said at once. */
+async function saveSignVoices() {
+  const trained = Object.keys(deps.classifier.counts ?? {});
+  const labels = [...new Set([...trained, ...SIGNS.map((s) => s.label)])];
+  await saveVoices(labels.map(signText));
+  if (settings.lang === 'en') await saveVoices(labels.map(signEnglish).filter(Boolean), { lang: 'en' });
+}
+
 export function leaveUsap() {
   st.active = false;
-  st.capture?.stop();
   st.recording?.stop();
+  spotter.reset();
   cam?.stop();
 }
 
@@ -132,36 +142,36 @@ export async function repeatMessage(m = messages.at(-1)) {
 
 // ---------- signs (camera, always on) ----------
 function onFrame(frame) {
-  if (!frame.hands) $('#u-status').dataset.hands = 0;
-  if (!st.active || st.capture || st.recording || st.busy) return;
-  st.streak = frame.hands ? st.streak + 1 : 0;
-  if (st.streak >= HAND_STREAK && performance.now() > st.cooldownUntil) captureSign();
+  if (!st.active || st.recording || st.busy) return;
+  spotter.push(frame);
 }
 
-async function captureSign() {
-  if (!deps.classifier.ready) return;
-  const status = $('#u-status');
-  status.textContent = 'Nakikita ang kamay…';
-  st.capture = cam.captureSign({ onState: (s) => s === 'signing' && (status.textContent = 'Nagsa-sign…') });
-  const { frames } = await st.capture.done;
-  st.capture = null;
-  st.streak = 0;
-  st.cooldownUntil = performance.now() + COOLDOWN_MS;
-  if (!st.active) return;
-  const res = deps.classifier.predict(trimFrames(frames));
-  if (!res.label) {
-    if (res.reason === 'no-hands') {
-      status.textContent = 'Nakatutok. Hinihintay ang sign…';
-      return;
-    }
-    status.textContent = `hindi sigurado (pinakamalapit: ${signText(res.guess)})`;
-    setCaption(UNKNOWN_TEXT, '🤟');
-    addHistory({ from: 'kamay', text: UNKNOWN_TEXT, note: 'ulitin ang sign', local: true });
-    earcon('error');
-    return;
-  }
-  status.textContent = `${signText(res.label)} — ${Math.round(res.confidence * 100)}%`;
-  await announceSign(res.label);
+function onActivity(signing) {
+  if (!st.active || st.recording) return;
+  $('#u-status').textContent = signing ? 'Nagsa-sign…' : 'Nakatutok. Hinihintay ang sign…';
+}
+
+function onUnknown(res) {
+  $('#u-status').textContent = `hindi sigurado (pinakamalapit: ${signText(res.guess)})`;
+  setCaption(UNKNOWN_TEXT, '🤟');
+  addHistory({ from: 'kamay', text: UNKNOWN_TEXT, note: 'ulitin ang sign', local: true });
+  earcon('error');
+}
+
+async function onSign(res) {
+  const foundAt = performance.now();
+  $('#u-status').textContent = `${signText(res.label)} — ${Math.round(res.confidence * 100)}%`;
+  const before = voice.voiceStartedAt;
+  // Signs chained quickly are said one after another, not cut off.
+  const spoken = (st.voiceQueue = st.voiceQueue.then(() => announceSign(res.label)).catch(() => {}));
+  // Timing in the Network log, to see where the delay is on a real phone.
+  const poll = setInterval(() => {
+    if (voice.voiceStartedAt === before && performance.now() - foundAt < 10000) return;
+    clearInterval(poll);
+    const v = voice.voiceStartedAt === before ? 'no voice' : `voice +${Math.round(voice.voiceStartedAt - foundAt)} ms`;
+    netlog.info(`sign ${res.label} ${Math.round(res.confidence * 100)}% · ${res.frames} frames / ${Math.round(res.endAt - res.startAt)} ms · found +${Math.round(foundAt - res.endAt)} ms after it · ${v}`);
+  }, 20);
+  await spoken;
 }
 
 /** English for a sign: the built-in meaning, or the offline translator for added words. */
@@ -187,7 +197,6 @@ export async function talk() {
   unlockAudio();
   if (st.recording) return st.recording.stop();
   if (st.busy || $('#u-mic').classList.contains('busy')) return;
-  st.capture?.stop();
   stopSpeech();
   const btn = $('#u-mic');
   earcon('start');
@@ -226,7 +235,7 @@ export async function talk() {
     netlog.info(`transcribe error: ${err.message}`);
   } finally {
     st.busy = false;
-    st.cooldownUntil = performance.now() + COOLDOWN_MS;
+    spotter.reset();
     btn.classList.remove('busy');
     btn.textContent = 'Magsalita';
   }

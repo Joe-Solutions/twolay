@@ -67,11 +67,47 @@ export function synthesize(text, { lang = 'fil', strict = false } = {}) {
     pending.set(id, (d) => {
       if (d.type === 'error') return rej(new Error(d.error));
       const out = { audio: d.audio, rate: d.rate };
-      cache.set(key, out);
-      if (cache.size > 60) cache.delete(cache.keys().next().value);
+      remember(key, out);
       res(out);
     });
     getWorker();
     booted.then(() => worker.postMessage({ type: 'say', id, text, lang, strict }));
   });
+}
+
+function remember(key, out) {
+  cache.set(key, out);
+  if (cache.size > 60) cache.delete(cache.keys().next().value);
+}
+
+// ---------- saved audio for words said again and again (the signs) ----------
+// Generating a word takes 1-3 s; saved, it plays at once, even before Kokoro has loaded.
+// Not named twolay-*: the offline updater treats those caches as old app copies.
+const SAVED = 'voice-kokoro-v1';
+const savedURL = (key) => new URL(`/__voice/${encodeURIComponent(key)}`, location.origin).href;
+
+/** Saved audio for this text, or null. Never waits for Kokoro. */
+export async function savedVoice(text, { lang = 'fil' } = {}) {
+  const key = `${lang}|${text.trim().toLowerCase()}`;
+  if (cache.has(key)) return cache.get(key);
+  if (!('caches' in window)) return null;
+  const res = await (await caches.open(SAVED)).match(savedURL(key)).catch(() => null);
+  if (!res) return null;
+  const out = { audio: new Float32Array(await res.arrayBuffer()), rate: Number(res.headers.get('x-rate')) };
+  remember(key, out);
+  return out;
+}
+
+/** Generate (once, in the background) and save audio for each text. */
+export async function saveVoices(texts, { lang = 'fil' } = {}) {
+  if (!('caches' in window)) return;
+  await loadKokoro();
+  const store = await caches.open(SAVED);
+  for (const text of texts) {
+    const key = `${lang}|${text.trim().toLowerCase()}`;
+    if (await store.match(savedURL(key))) continue;
+    // English: only words the lexicon knows; others are left to the system English voice, as when speaking.
+    const out = await synthesize(text, { lang, strict: lang === 'en' }).catch(() => null);
+    if (out) await store.put(savedURL(key), new Response(out.audio.slice().buffer, { headers: { 'x-rate': String(out.rate) } }));
+  }
 }
